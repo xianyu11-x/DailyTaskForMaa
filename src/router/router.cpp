@@ -11,7 +11,7 @@ void setAllRoute(HTTPServer &server) {
     server.route("POST", "/maa/reportStatus",reportStatus);
     
     #if CO_ASYNC_DEBUG
-    server.route("GET", "/maa/getTask",getTask);
-    server.route("GET", "/maa/reportStatus",reportStatus);
+    //server.route("GET", "/maa/getTask",getTask);
+    //server.route("GET", "/maa/reportStatus",reportStatus);
     #endif
 }

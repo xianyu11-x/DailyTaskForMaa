@@ -1,5 +1,6 @@
 #include <mysql/mysql.h>
 #include <string>
+#include <unordered_map>
 
 struct MAAUser{
     std::string userID;
@@ -15,4 +16,6 @@ int insertMAAUserInit(MYSQL *conn, std::string userID, std::string deviceID, std
 
 MAAUser queryMAAUserAllInfo(MYSQL *conn, std::string userID, std::string deviceID);
 
-MAAUser quertMAAUserTaskStatus(MYSQL *conn, std::string userID, std::string deviceID);
+MAAUser queryMAAUserTaskStatus(MYSQL *conn, std::string userID, std::string deviceID);
+
+bool updateMAAUser(MYSQL *conn, std::string userID, std::string deviceID,std::unordered_map<std::string, std::string>& updateColMap);
