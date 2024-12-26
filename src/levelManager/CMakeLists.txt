@@ -1,0 +1,1 @@
+add_executable(levelGenerator permanentLevelGenerator.cpp levelManager.cpp)

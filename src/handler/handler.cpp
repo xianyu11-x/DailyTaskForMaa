@@ -1,9 +1,11 @@
 #include "handler.h"
+#include "../levelManager/levelManager.h"
 #include "../mysqlConnectPool/sqlConnectPool.h"
 #include "../sqlMap/sqlMap.h"
 #include "../utils/jsonUtil.hpp"
 #include "../utils/timeUtil.hpp"
 #include "../utils/uuid.hpp"
+#include "co_async/awaiter/task.hpp"
 #include "co_async/generic/allocator.hpp"
 #include "co_async/utils/expected.hpp"
 #include "rapidjson/document.h"
@@ -36,13 +38,30 @@ rapidjson::Document getDefaultStrategy() {
   rapidjson::Value sundayStrategyArray(rapidjson::kArrayType);
   rapidjson::Value sundayTask1(rapidjson::kObjectType);
   sundayTask1.AddMember("taskType", "Settings-Stage1", allocator);
-  sundayTask1.AddMember("params", "剿灭作战", allocator);
+  sundayTask1.AddMember("params", "剿灭模式", allocator);
   sundayStrategyArray.PushBack(sundayTask1, allocator);
   rapidjson::Value sundayTask2(rapidjson::kObjectType);
   sundayTask2.AddMember("taskType", "LinkStart", allocator);
   sundayStrategyArray.PushBack(sundayTask2, allocator);
   defaultStrategy.AddMember("7", sundayStrategyArray, allocator);
   return defaultStrategy;
+}
+
+std::string getDefaultLevel() {
+  auto now = std::chrono::system_clock::now();
+  std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
+  std::tm tmNow = *std::localtime(&nowTime);
+  int dayOfWeek = tmNow.tm_wday;
+  auto levelManager = levelManager::GetInstance();
+  auto [sideStoryStartTime, sideStoryEndTime] = levelManager->getSideStoryTime();
+  auto sideStoryStartTimeTm = stringToTm(sideStoryStartTime, "%Y/%m/%d %H:%M:%S");
+  auto sideStoryEndTimeTm = stringToTm(sideStoryEndTime, "%Y/%m/%d %H:%M:%S");
+  if (isTimeAfter(tmNow, sideStoryStartTimeTm) &&
+      isTimeAfter(sideStoryEndTimeTm, tmNow)) {
+    return levelManager->getDefaultSideStoryLevel();
+  }else{
+    return "1-7";
+  }
 }
 
 rapidjson::Document getDailyTask(const std::string &coreTaskId,
@@ -53,20 +72,21 @@ rapidjson::Document getDailyTask(const std::string &coreTaskId,
   rapidjson::Value taskArray(rapidjson::kArrayType);
   for (const auto &task : taskStrategy) {
     rapidjson::Value taskObj(rapidjson::kObjectType);
-    if (task.HasMember("taskType")) {
-      std::string taskType = task["taskType"].GetString();
-      if (taskType == "LinkStart") {
-        rapidjson::Value coreTaskIdValue(coreTaskId.c_str(), allocator);
-        taskObj.AddMember("id", coreTaskIdValue, allocator);
-      } else {
-        rapidjson::Value taskIDValue(generateUUID().c_str(), allocator);
-        taskObj.AddMember("id", taskIDValue, allocator);
-      }
-      rapidjson::Value taskTypeValue(taskType.c_str(), allocator);
-      taskObj.AddMember("type", taskTypeValue, allocator);
+    std::string taskType = task["taskType"].GetString();
+    if (taskType == "LinkStart") {
+      rapidjson::Value coreTaskIdValue(coreTaskId.c_str(), allocator);
+      taskObj.AddMember("id", coreTaskIdValue, allocator);
+    } else {
+      rapidjson::Value taskIDValue(generateUUID().c_str(), allocator);
+      taskObj.AddMember("id", taskIDValue, allocator);
     }
+    rapidjson::Value taskTypeValue(taskType.c_str(), allocator);
+    taskObj.AddMember("type", taskTypeValue, allocator);
     if (task.HasMember("params")) {
       std::string params = task["params"].GetString();
+      if (taskType == "Settings-Stage1" && params == "Default") {
+        params = getDefaultLevel();
+      }
       rapidjson::Value paramsValue(params.c_str(), allocator);
       taskObj.AddMember("params", paramsValue, allocator);
     }
@@ -181,7 +201,7 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
       if (tmNow.tm_hour < 4) {
         dayOfWeek = (dayOfWeek + 6) % 7;
       }
-      if(dayOfWeek == 0){
+      if (dayOfWeek == 0) {
         dayOfWeek = 7;
       }
       auto taskStrategy = stringToJson(user.taskStrategy);
@@ -195,8 +215,7 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
         co_await co_await stdio().putline("update task error"s);
       }
       hasTask = true;
-    }
-    else {
+    } else {
       co_await co_await stdio().putline("no need to update task"s +
                                         user.userID);
     }
@@ -222,5 +241,25 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
 Task<Expected<>> reportStatus(HTTPServer::IO &io) {
   co_await co_await HTTPServerUtils::make_ok_response(io,
                                                       "<h1>reportStatus!</h1>");
+  co_return {};
+}
+
+Task<Expected<>> updateLevel(HTTPServer::IO &io) {
+  auto request = co_await io.request_body();
+  rapidjson::Document requestDOM;
+  requestDOM.Parse(request.value().c_str());
+  auto levelManager = levelManager::GetInstance();
+  auto sideStoryLevelList = requestDOM["Official"]["sideStoryStage"].GetArray();
+  if (!sideStoryLevelList.Empty()) {
+    auto startTime =
+        sideStoryLevelList[0]["Activity"]["UtcStartTime"].GetString();
+    auto endTime =
+        sideStoryLevelList[0]["Activity"]["UtcExpireTime"].GetString();
+    std::cout << startTime << std::endl;
+    std::cout << endTime << std::endl;
+    levelManager->setSideStoryLevel(sideStoryLevelList, startTime, endTime);
+  }
+  co_await co_await HTTPServerUtils::make_ok_response(io,
+                                                      "updateSideStoryLevel");
   co_return {};
 }

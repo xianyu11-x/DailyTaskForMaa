@@ -6,3 +6,5 @@ using namespace co_async;
 Task<Expected<>> getTask(HTTPServer::IO &io);
 
 Task<Expected<>> reportStatus(HTTPServer::IO &io);
+
+Task<Expected<>> updateLevel(HTTPServer::IO &io);

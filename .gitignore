@@ -2,3 +2,4 @@
 build/
 src/libtest/
 include/
+bin/
