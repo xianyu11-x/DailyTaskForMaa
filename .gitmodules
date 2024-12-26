@@ -1,0 +1,3 @@
+[submodule "co_async"]
+	path = co_async
+	url = https://github.com/archibate/co_async.git
