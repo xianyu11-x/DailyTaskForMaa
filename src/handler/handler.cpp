@@ -24,6 +24,7 @@ rapidjson::Document getDefaultStrategy() {
   rapidjson::Document defaultStrategy;
   defaultStrategy.SetObject();
   auto &allocator = defaultStrategy.GetAllocator();
+  // TODO：默认策略保存在配置文件中
   vector<std::string> dailyTaskParams = {"AP-5", "CE-6",   "PR-C-2",
                                          "AP-5", "PR-A-2", "CE-6"};
   for (int i = 1; i < 7; i++) {
@@ -78,8 +79,8 @@ std::string getDefaultLevel(const rapidjson::Value::ConstArray &levelList) {
       if (isTimeAfter(tmNow, sideStoryStartTimeTm) &&
           isTimeAfter(sideStoryEndTimeTm, tmNow)) {
         return levelManager->getDefaultSideStoryLevel();
-      } 
-    }else if(levelManager->checkLevelStatus(curLevelName, dayOfWeek)){
+      }
+    } else if (levelManager->checkLevelStatus(curLevelName, dayOfWeek)) {
       return curLevelName;
     }
   }
@@ -262,6 +263,43 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
 }
 
 Task<Expected<>> reportStatus(HTTPServer::IO &io) {
+  auto connPool = connectionPool::GetInstance();
+  auto conn = co_await connPool->GetConnection();
+
+  auto request = co_await io.request_body();
+
+  rapidjson::Document requestDOM;
+  rapidjson::Document responseDOM;
+  requestDOM.Parse(request.value().c_str());
+  std::string userID = requestDOM["user"].GetString();
+  std::string deviceID = requestDOM["device"].GetString();
+  std::string returnTaskID = requestDOM["task"].GetString();
+  auto storeUserInfo = queryMAAUserInfo(conn, userID, deviceID);
+  if(storeUserInfo.userID == "" || storeUserInfo.deviceID == ""){
+    co_await co_await stdio().putline("userInfo not exist"s);
+  }else{
+    auto storeTaskInfo = queryMAAUserTaskStatus(conn, storeUserInfo.userID, storeUserInfo.deviceID);
+    if(storeTaskInfo.dailyTaskID == returnTaskID){
+      auto now = std::chrono::system_clock::now();
+      std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
+      std::tm tmNow = *std::localtime(&nowTime);
+      std::string strTaskEndTime = tmToString(tmNow, "%Y-%m-%d %H:%M:%S");
+
+      auto curDailyTaskTime = stringToTm(storeTaskInfo.dailyTaskTime, "%Y-%m-%d %H:%M:%S");
+      auto nextDailyTaskTime = DateAdd(curDailyTaskTime, 60*60*24);
+      std::unordered_map<std::string, std::string> updateColMap;
+      updateColMap["taskEndTime"] = strTaskEndTime;
+      updateColMap["dailyTaskTime"] = tmToString(nextDailyTaskTime, "%Y-%m-%d %H:%M:%S");
+      bool updateRes = updateMAAUser(conn, storeUserInfo.userID, storeUserInfo.deviceID, updateColMap);
+      if (!updateRes) {
+        co_await co_await stdio().putline("update task error"s);
+      }
+    }
+  }
+
+
+
+  co_await connPool->ReleaseConnection(conn);
   co_await co_await HTTPServerUtils::make_ok_response(io,
                                                       "<h1>reportStatus!</h1>");
   co_return {};

@@ -2,6 +2,7 @@
 #include <string>
 #include <unordered_map>
 
+//TODO:重构
 struct MAAUser{
     std::string userID;
     std::string deviceID;
@@ -15,6 +16,8 @@ struct MAAUser{
 int insertMAAUserInit(MYSQL *conn, std::string userID, std::string deviceID, std::string taskStrategy,std::string dailyTaskTime, std::string curTaskDefaultTime);
 
 MAAUser queryMAAUserAllInfo(MYSQL *conn, std::string userID, std::string deviceID);
+
+MAAUser queryMAAUserInfo(MYSQL *conn, std::string userID, std::string deviceID);
 
 MAAUser queryMAAUserTaskStatus(MYSQL *conn, std::string userID, std::string deviceID);
 
