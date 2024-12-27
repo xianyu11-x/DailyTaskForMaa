@@ -62,3 +62,13 @@ std::string levelManager::getDefaultSideStoryLevel(){
         return curlevelPrefix + "-" + std::to_string(maxLevelNum);
     }
 }
+
+bool levelManager::checkLevelStatus(std::string levelName, int dayOfWeek){
+    if(sideStoryLevelDict.count(levelName)){
+        return true;
+    }
+    if(permanentLevelDict.count(levelName)){
+        return permanentLevelDict[levelName][dayOfWeek];
+    }
+    return false;
+}

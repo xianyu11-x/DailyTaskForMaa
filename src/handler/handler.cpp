@@ -18,16 +18,23 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 rapidjson::Document getDefaultStrategy() {
   rapidjson::Document defaultStrategy;
   defaultStrategy.SetObject();
   auto &allocator = defaultStrategy.GetAllocator();
+  vector<std::string> dailyTaskParams = {"AP-5", "CE-6",   "PR-C-2",
+                                         "AP-5", "PR-A-2", "CE-6"};
   for (int i = 1; i < 7; i++) {
     rapidjson::Value strategyArray(rapidjson::kArrayType);
     rapidjson::Value task1(rapidjson::kObjectType);
     task1.AddMember("taskType", "Settings-Stage1", allocator);
-    task1.AddMember("params", "Default", allocator);
+    rapidjson::Value paramsArray(rapidjson::kArrayType);
+    paramsArray.PushBack(rapidjson::Value("sideStory", allocator), allocator);
+    paramsArray.PushBack(
+        rapidjson::Value(dailyTaskParams[i - 1].c_str(), allocator), allocator);
+    task1.AddMember("params", paramsArray, allocator);
     strategyArray.PushBack(task1, allocator);
     rapidjson::Value task2(rapidjson::kObjectType);
     task2.AddMember("taskType", "LinkStart", allocator);
@@ -38,7 +45,9 @@ rapidjson::Document getDefaultStrategy() {
   rapidjson::Value sundayStrategyArray(rapidjson::kArrayType);
   rapidjson::Value sundayTask1(rapidjson::kObjectType);
   sundayTask1.AddMember("taskType", "Settings-Stage1", allocator);
-  sundayTask1.AddMember("params", "剿灭模式", allocator);
+  rapidjson::Value paramsArray(rapidjson::kArrayType);
+  paramsArray.PushBack(rapidjson::Value("剿灭模式", allocator), allocator);
+  sundayTask1.AddMember("params", paramsArray, allocator);
   sundayStrategyArray.PushBack(sundayTask1, allocator);
   rapidjson::Value sundayTask2(rapidjson::kObjectType);
   sundayTask2.AddMember("taskType", "LinkStart", allocator);
@@ -47,21 +56,34 @@ rapidjson::Document getDefaultStrategy() {
   return defaultStrategy;
 }
 
-std::string getDefaultLevel() {
+std::string getDefaultLevel(const rapidjson::Value::ConstArray &levelList) {
   auto now = std::chrono::system_clock::now();
   std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
   std::tm tmNow = *std::localtime(&nowTime);
   int dayOfWeek = tmNow.tm_wday;
   auto levelManager = levelManager::GetInstance();
-  auto [sideStoryStartTime, sideStoryEndTime] = levelManager->getSideStoryTime();
-  auto sideStoryStartTimeTm = stringToTm(sideStoryStartTime, "%Y/%m/%d %H:%M:%S");
-  auto sideStoryEndTimeTm = stringToTm(sideStoryEndTime, "%Y/%m/%d %H:%M:%S");
-  if (isTimeAfter(tmNow, sideStoryStartTimeTm) &&
-      isTimeAfter(sideStoryEndTimeTm, tmNow)) {
-    return levelManager->getDefaultSideStoryLevel();
-  }else{
-    return "1-7";
+  std::string levelName = "1-7";
+  for (const auto &level : levelList) {
+    std::string curLevelName = level.GetString();
+    if (curLevelName == "sideStory") {
+      auto [sideStoryStartTime, sideStoryEndTime] =
+          levelManager->getSideStoryTime();
+      if (sideStoryStartTime == "" || sideStoryEndTime == "") {
+        continue;
+      }
+      auto sideStoryStartTimeTm =
+          stringToTm(sideStoryStartTime, "%Y/%m/%d %H:%M:%S");
+      auto sideStoryEndTimeTm =
+          stringToTm(sideStoryEndTime, "%Y/%m/%d %H:%M:%S");
+      if (isTimeAfter(tmNow, sideStoryStartTimeTm) &&
+          isTimeAfter(sideStoryEndTimeTm, tmNow)) {
+        return levelManager->getDefaultSideStoryLevel();
+      } 
+    }else if(levelManager->checkLevelStatus(curLevelName, dayOfWeek)){
+      return curLevelName;
+    }
   }
+  return levelName;
 }
 
 rapidjson::Document getDailyTask(const std::string &coreTaskId,
@@ -83,12 +105,12 @@ rapidjson::Document getDailyTask(const std::string &coreTaskId,
     rapidjson::Value taskTypeValue(taskType.c_str(), allocator);
     taskObj.AddMember("type", taskTypeValue, allocator);
     if (task.HasMember("params")) {
-      std::string params = task["params"].GetString();
-      if (taskType == "Settings-Stage1" && params == "Default") {
-        params = getDefaultLevel();
+      auto params = task["params"].GetArray();
+      if (taskType == "Settings-Stage1") {
+        auto curlevelName = getDefaultLevel(params);
+        rapidjson::Value paramsValue(curlevelName.c_str(), allocator);
+        taskObj.AddMember("params", paramsValue, allocator);
       }
-      rapidjson::Value paramsValue(params.c_str(), allocator);
-      taskObj.AddMember("params", paramsValue, allocator);
     }
     taskArray.PushBack(taskObj, allocator);
   }
@@ -205,6 +227,7 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
         dayOfWeek = 7;
       }
       auto taskStrategy = stringToJson(user.taskStrategy);
+
       responseDOM = getDailyTask(
           curTaskID,
           taskStrategy[std::to_string(dayOfWeek).c_str()].GetArray());
