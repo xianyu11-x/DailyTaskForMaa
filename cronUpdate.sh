@@ -17,13 +17,15 @@ fi
 
 # 如果未传递 install 或 uninstall 参数，则执行更新逻辑
 JSON_URL="https://raw.githubusercontent.com/MaaAssistantArknights/MaaResource/refs/heads/main/cache/gui/StageActivity.json"
-POST_URL="http://172.23.17.52:8080/maa/updateSideStory"
+POST_URL="http://0.0.0.0:8080/maa/updateSideStory"
 TEMP_FILE="/tmp/temp_download.json"
 
 # 下载 JSON 文件
+echo "正在下载 JSON 文件：$JSON_URL"
 curl -s -o "$TEMP_FILE" "$JSON_URL"
 
 # 将 JSON 文件内容通过 POST 推送致服务器
+echo "正在推送 JSON 文件：$POST_URL"
 curl -X POST "$POST_URL" \
      -H "Content-Type: application/json" \
      --data-binary @"$TEMP_FILE"

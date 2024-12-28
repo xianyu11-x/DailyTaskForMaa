@@ -80,7 +80,7 @@ static Task<Expected<>> amain(std::string serveAt) {
 }
 
 int main(int argc, char **argv) {
-  std::string serveAt = "172.23.17.52:8080";
+  std::string serveAt = "0.0.0.0:8080";
   if (argc > 1) {
     serveAt = argv[1];
   } 

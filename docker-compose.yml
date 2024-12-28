@@ -1,0 +1,28 @@
+version: '3'
+
+services:
+  db:
+    image: mysql:latest
+    container_name: mysql-MAADB
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: MAABackendDB
+      MYSQL_USER: user
+      MYSQL_PASSWORD: passwd
+    ports:
+      - "3308:3306"
+    volumes:
+      - ./initdb:/docker-entrypoint-initdb.d
+
+  backend:
+    image: backend
+    container_name: MAAbackend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    privileged: true
+    user: root
