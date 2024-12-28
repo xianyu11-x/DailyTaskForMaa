@@ -21,4 +21,6 @@ MAAUser queryMAAUserInfo(MYSQL *conn, std::string userID, std::string deviceID);
 
 MAAUser queryMAAUserTaskStatus(MYSQL *conn, std::string userID, std::string deviceID);
 
+MAAUser queryMAAUserStrategy(MYSQL *conn, std::string userID, std::string deviceID);
+
 bool updateMAAUser(MYSQL *conn, std::string userID, std::string deviceID,std::unordered_map<std::string, std::string>& updateColMap);

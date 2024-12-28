@@ -8,3 +8,7 @@ Task<Expected<>> getTask(HTTPServer::IO &io);
 Task<Expected<>> reportStatus(HTTPServer::IO &io);
 
 Task<Expected<>> updateLevel(HTTPServer::IO &io);
+
+Task<Expected<>> updateStrategy(HTTPServer::IO &io);
+
+Task<Expected<>> getStrategy(HTTPServer::IO &io);
