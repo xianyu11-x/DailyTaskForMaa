@@ -34,8 +34,9 @@ services:
     # network_mode: host
     networks:
       - MAA-backend
-    command: ["./bin/MAAbackend"]
-    
+    command: ["sh", "-c", "sleep 20 && ./bin/MAAbackend"]
+    restart: on-failure
+
 networks:
   MAA-backend:
     driver: bridge
