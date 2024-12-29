@@ -14,7 +14,7 @@ sudo ./start.sh
 
 1.MAA远程调用必须的后端端点
 
-2.用户每日任务策略的配置和查询
+2.用户每日任务策略的配置和查询(目前sideStory策略是默认倒数第2关)
 
 3.自动从MAAResource拉取支持的SideStory并推送关卡信息
 
