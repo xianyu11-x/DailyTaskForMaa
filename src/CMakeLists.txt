@@ -1,5 +1,5 @@
 add_subdirectory(mysqlConnectPool)
-add_subdirectory(libtest)
+#add_subdirectory(libtest)
 add_subdirectory(levelManager)
 
 set(SRC
