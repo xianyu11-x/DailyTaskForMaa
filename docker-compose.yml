@@ -16,19 +16,26 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
+    networks:
+      - MAA-backend
   backend:
     image: backend
     container_name: MAAbackend
     build:
       context: .
       dockerfile: Dockerfile
-    # ports:
-    #   - "8080:8080"
+    ports:
+      - "8080:8080"
     depends_on:
       db:
         condition: service_healthy
     privileged: true
     user: root
-    network_mode: host
+    # network_mode: host
+    networks:
+      - MAA-backend
     command: ["./bin/MAAbackend"]
+    
+networks:
+  MAA-backend:
+    driver: bridge

@@ -21,7 +21,7 @@ static Task<Expected<>> amain(std::string serveAt) {
   //TODO:使用配置文件统一处理配置信息
   co_await co_await stdio().putline("connecting db"s );
   auto conn = connectionPool::GetInstance();
-  conn->init("0.0.0.0", "root", "root", "MAABackendDB", 3306, 10);
+  conn->init("db", "root", "root", "MAABackendDB", 3306, 10);
   HTTPServer server;
   // server.route("GET", "/index", [](HTTPServer::IO &io) -> Task<Expected<>> {
   //     co_await co_await HTTPServerUtils::make_ok_response(io, "<h1>It
