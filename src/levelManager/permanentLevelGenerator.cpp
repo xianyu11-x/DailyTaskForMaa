@@ -58,6 +58,8 @@ int main() {
 
   levelArray.PushBack(setLevelObj("1-7", {1, 1, 1, 1, 1, 1, 1}, allocator),
                       allocator);
+  levelArray.PushBack(setLevelObj("剿灭模式", {1, 1, 1, 1, 1, 1, 1}, allocator),
+                      allocator);
   doc.AddMember("permanentLevel", levelArray, allocator);
   std::string jsonString = jsonToString(doc);
   std::cout << jsonString << std::endl;
