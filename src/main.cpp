@@ -19,13 +19,15 @@ static Task<Expected<>> amain(std::string serveAt) {
   levelManager->setPermanentLevel(permanentLevelStr);
 
   //TODO:使用配置文件统一处理配置信息
+  co_await co_await stdio().putline("connecting db"s );
   auto conn = connectionPool::GetInstance();
-  conn->init("172.23.17.52", "root", "root", "MAABackendDB", 3306, 10);
+  conn->init("0.0.0.0", "root", "root", "MAABackendDB", 3306, 10);
   HTTPServer server;
   // server.route("GET", "/index", [](HTTPServer::IO &io) -> Task<Expected<>> {
   //     co_await co_await HTTPServerUtils::make_ok_response(io, "<h1>It
   //     works!</h1>"); co_return {};
   // });
+  co_await co_await stdio().putline("setting route"s );
   setAllRoute(server);
 
   struct Worker {
@@ -65,7 +67,7 @@ static Task<Expected<>> amain(std::string serveAt) {
   for (std::size_t i = 0; i < workers.size(); ++i) {
     workers[i].start(i);
   }
-
+  co_await co_await stdio().putline("start loop"s );
   std::size_t i = 0;
   while (true) {
     if (auto income = co_await listener_accept(listener)) [[likely]] {
