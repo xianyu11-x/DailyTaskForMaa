@@ -5,7 +5,7 @@ WORKDIR /root/DailyTaskForMAA
 
 RUN mkdir -p build && \
     cd build && \
-    cmake -DCMAKE_BUILD_TYPE=Debug .. && \
+    cmake -DCMAKE_BUILD_TYPE=Release .. && \
     make
 
 RUN ./bin/levelGenerator 
