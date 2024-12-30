@@ -28,7 +28,7 @@ void levelManager::setPermanentLevel(std::string PermanentLevelJson)
 
 void levelManager::setSideStoryLevel(const rapidjson::Value::Array& sideStoryLevelList,const std::string& startTime,const std::string& endTime)
 {
-    permanentLevelDict.clear();
+    sideStoryLevelDict.clear();
     for (const auto& level : sideStoryLevelList)
     {
         std::string levelName = level["Value"].GetString();

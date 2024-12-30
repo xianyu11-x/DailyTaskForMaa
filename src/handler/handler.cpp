@@ -63,6 +63,9 @@ std::string getDefaultLevel(const rapidjson::Value::ConstArray &levelList) {
   std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
   std::tm tmNow = *std::localtime(&nowTime);
   int dayOfWeek = tmNow.tm_wday;
+  if (tmNow.tm_hour < 4) {
+    dayOfWeek = (dayOfWeek + 6) % 7;
+  }
   auto levelManager = levelManager::GetInstance();
   std::string levelName = "1-7";
   for (const auto &level : levelList) {
