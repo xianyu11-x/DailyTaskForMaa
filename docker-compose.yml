@@ -3,7 +3,7 @@ version: '3'
 services:
   db:
     image: mysql:latest
-    container_name: mysql-MAADB
+    container_name: db
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: MAABackendDB
@@ -20,12 +20,14 @@ services:
       - MAA-backend
   backend:
     image: backend
-    container_name: MAAbackend
+    container_name: backend
     build:
       context: .
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
+    environment:
+      - TZ=Asia/Shanghai
     depends_on:
       db:
         condition: service_healthy
