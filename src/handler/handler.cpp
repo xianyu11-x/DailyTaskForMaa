@@ -20,22 +20,28 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "../conf/conf.h"
 
 rapidjson::Document getDefaultStrategy() {
   rapidjson::Document defaultStrategy;
   defaultStrategy.SetObject();
   auto &allocator = defaultStrategy.GetAllocator();
   // TODO：默认策略保存在配置文件中
-  vector<std::string> dailyTaskParams = {"AP-5", "CE-6",   "PR-C-2",
-                                         "AP-5", "PR-A-2", "CE-6"};
-  for (int i = 1; i < 7; i++) {
+  auto confManager = confManager::GetInstance();
+  auto dailyTaskParams = confManager->getDefaultLevelList();
+  // vector<std::string> dailyTaskParams = {"AP-5", "CE-6",   "PR-C-2",
+  //                                        "AP-5", "PR-A-2", "CE-6"};
+  for (int i = 1; i <= 7; i++) {
     rapidjson::Value strategyArray(rapidjson::kArrayType);
     rapidjson::Value task1(rapidjson::kObjectType);
     task1.AddMember("taskType", "Settings-Stage1", allocator);
     rapidjson::Value paramsArray(rapidjson::kArrayType);
-    paramsArray.PushBack(rapidjson::Value("sideStory", allocator), allocator);
-    paramsArray.PushBack(
-        rapidjson::Value(dailyTaskParams[i - 1].c_str(), allocator), allocator);
+    // paramsArray.PushBack(rapidjson::Value("sideStory", allocator), allocator);
+    // paramsArray.PushBack(
+    //     rapidjson::Value(dailyTaskParams[i - 1].c_str(), allocator), allocator);
+    for (const auto &level : dailyTaskParams[i-1]){
+      paramsArray.PushBack(rapidjson::Value(level.c_str(), allocator), allocator);
+    }
     task1.AddMember("params", paramsArray, allocator);
     strategyArray.PushBack(task1, allocator);
     rapidjson::Value task2(rapidjson::kObjectType);
@@ -44,17 +50,17 @@ rapidjson::Document getDefaultStrategy() {
     rapidjson::Value key(std::to_string(i).c_str(), allocator);
     defaultStrategy.AddMember(key, strategyArray, allocator);
   }
-  rapidjson::Value sundayStrategyArray(rapidjson::kArrayType);
-  rapidjson::Value sundayTask1(rapidjson::kObjectType);
-  sundayTask1.AddMember("taskType", "Settings-Stage1", allocator);
-  rapidjson::Value paramsArray(rapidjson::kArrayType);
-  paramsArray.PushBack(rapidjson::Value("剿灭模式", allocator), allocator);
-  sundayTask1.AddMember("params", paramsArray, allocator);
-  sundayStrategyArray.PushBack(sundayTask1, allocator);
-  rapidjson::Value sundayTask2(rapidjson::kObjectType);
-  sundayTask2.AddMember("taskType", "LinkStart", allocator);
-  sundayStrategyArray.PushBack(sundayTask2, allocator);
-  defaultStrategy.AddMember("7", sundayStrategyArray, allocator);
+  // rapidjson::Value sundayStrategyArray(rapidjson::kArrayType);
+  // rapidjson::Value sundayTask1(rapidjson::kObjectType);
+  // sundayTask1.AddMember("taskType", "Settings-Stage1", allocator);
+  // rapidjson::Value paramsArray(rapidjson::kArrayType);
+  // paramsArray.PushBack(rapidjson::Value("剿灭模式", allocator), allocator);
+  // sundayTask1.AddMember("params", paramsArray, allocator);
+  // sundayStrategyArray.PushBack(sundayTask1, allocator);
+  // rapidjson::Value sundayTask2(rapidjson::kObjectType);
+  // sundayTask2.AddMember("taskType", "LinkStart", allocator);
+  // sundayStrategyArray.PushBack(sundayTask2, allocator);
+  // defaultStrategy.AddMember("7", sundayStrategyArray, allocator);
   return defaultStrategy;
 }
 

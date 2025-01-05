@@ -15,3 +15,11 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 add_subdirectory(co_async)
 add_subdirectory(src)
+
+add_custom_target(copy_cfg ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/cfg ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cfg
+    DEPENDS ${CMAKE_SOURCE_DIR}/cfg
+)
+
+add_dependencies(MAAbackend copy_cfg)

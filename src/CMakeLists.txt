@@ -8,7 +8,9 @@ set(SRC
     router/router.cpp
     mysqlConnectPool/sqlConnectPool.cpp
     sqlMap/sqlMap.cpp
-    levelManager/levelManager.cpp)
+    levelManager/levelManager.cpp
+    conf/conf.cpp
+    )
 
 add_executable(${PROJECT_NAME} ${SRC})
 target_link_libraries(${PROJECT_NAME} PRIVATE co_async mysqlclient)
