@@ -1,5 +1,6 @@
 #include "sqlMap.h"
 #include <cstring>
+#include <mysql/field_types.h>
 #include <string>
 #include <vector>
 
@@ -334,4 +335,75 @@ MAAUser queryMAAUserStrategy(MYSQL *conn, std::string userID,
 
   mysql_stmt_close(stmt);
   return MAAUser{.userID = vals[0], .deviceID = vals[1], .taskStrategy = vals[2]};
+}
+
+MAAUser queryMAAUserAllInfo(MYSQL *conn, std::string userID, std::string deviceID){
+  std::string sql = "SELECT userID,deviceID,dailyTaskTime,taskStartTime,taskEndTime,taskStrategy,dailyTaskID FROM MAAUser WHERE userID = ? AND deviceID = ?";
+  MYSQL_STMT *stmt = mysql_stmt_init(conn);
+  if (!stmt) {
+    return MAAUser();
+  }
+  if (mysql_stmt_prepare(stmt, sql.c_str(), sql.size())) {
+    mysql_stmt_close(stmt);
+    return MAAUser();
+  }
+  MYSQL_BIND bind[2];
+  memset(bind, 0, sizeof(bind));
+
+  bind[0].buffer_type = MYSQL_TYPE_STRING;
+  bind[0].buffer = (char *)userID.c_str();
+  bind[0].buffer_length = userID.size();
+
+  bind[1].buffer_type = MYSQL_TYPE_STRING;
+  bind[1].buffer = (char *)deviceID.c_str();
+  bind[1].buffer_length = deviceID.size();
+
+  if (mysql_stmt_bind_param(stmt, bind)) {
+    mysql_stmt_close(stmt);
+    return MAAUser();
+  }
+
+  if (mysql_stmt_execute(stmt)) {
+    mysql_stmt_close(stmt);
+    return MAAUser();
+  }
+
+  MYSQL_RES *res = mysql_stmt_result_metadata(stmt);
+  if (!res) {
+    mysql_stmt_close(stmt);
+    return MAAUser();
+  }
+
+  MYSQL_BIND resultBind[7];
+  memset(resultBind, 0, sizeof(resultBind));
+
+  std::vector<std::string> vals;
+  vals.reserve(6);
+  for (int i = 0; i < 7; i++) {
+    resultBind[i].buffer_type = MYSQL_TYPE_STRING;
+    // 先为每个字符串分配固定大小
+    vals.push_back(std::string(1024, '\0'));
+    resultBind[i].buffer = (char *)vals.back().data();
+    // 指定缓冲区大小
+    resultBind[i].buffer_length = 1024;
+    resultBind[i].is_null = nullptr;
+    resultBind[i].length = nullptr;
+  }
+
+  if (mysql_stmt_bind_result(stmt, resultBind)) {
+    mysql_stmt_close(stmt);
+    return MAAUser();
+  }
+
+  if (mysql_stmt_fetch(stmt) == 1) {
+    mysql_stmt_close(stmt);
+    return MAAUser();
+  } else {
+    for (auto &v : vals) {
+      v.resize(strlen(v.c_str()));
+    }
+  }
+
+  mysql_stmt_close(stmt);
+  return MAAUser{.userID = vals[0], .deviceID = vals[1], .dailyTaskTime = vals[2], .taskStartTime = vals[3], .taskEndTime = vals[4], .taskStrategy = vals[5], .dailyTaskID = vals[6]};
 }

@@ -1,4 +1,5 @@
 #include "handler.h"
+#include "../conf/conf.h"
 #include "../levelManager/levelManager.h"
 #include "../mysqlConnectPool/sqlConnectPool.h"
 #include "../sqlMap/sqlMap.h"
@@ -7,6 +8,7 @@
 #include "../utils/uuid.hpp"
 #include "co_async/awaiter/task.hpp"
 #include "co_async/generic/allocator.hpp"
+#include "co_async/utils/debug.hpp"
 #include "co_async/utils/expected.hpp"
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
@@ -20,7 +22,6 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include "../conf/conf.h"
 
 rapidjson::Document getDefaultStrategy() {
   rapidjson::Document defaultStrategy;
@@ -36,11 +37,13 @@ rapidjson::Document getDefaultStrategy() {
     rapidjson::Value task1(rapidjson::kObjectType);
     task1.AddMember("taskType", "Settings-Stage1", allocator);
     rapidjson::Value paramsArray(rapidjson::kArrayType);
-    // paramsArray.PushBack(rapidjson::Value("sideStory", allocator), allocator);
-    // paramsArray.PushBack(
-    //     rapidjson::Value(dailyTaskParams[i - 1].c_str(), allocator), allocator);
-    for (const auto &level : dailyTaskParams[i-1]){
-      paramsArray.PushBack(rapidjson::Value(level.c_str(), allocator), allocator);
+    // paramsArray.PushBack(rapidjson::Value("sideStory", allocator),
+    // allocator); paramsArray.PushBack(
+    //     rapidjson::Value(dailyTaskParams[i - 1].c_str(), allocator),
+    //     allocator);
+    for (const auto &level : dailyTaskParams[i - 1]) {
+      paramsArray.PushBack(rapidjson::Value(level.c_str(), allocator),
+                           allocator);
     }
     task1.AddMember("params", paramsArray, allocator);
     strategyArray.PushBack(task1, allocator);
@@ -175,33 +178,16 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
   std::string userID = requestDOM["user"].GetString();
   std::string deviceID = requestDOM["device"].GetString();
 
-  string queryStr = "select * from MAAUser where userID = \"" + userID +
-                    "\" and deviceID = \"" + deviceID + "\"";
-  mysql_query(conn, queryStr.c_str());
+  auto curUserInfo = queryMAAUserAllInfo(conn, userID, deviceID);
 
-  auto res = mysql_store_result(conn);
-  if (res == nullptr) {
-    // Log error
-  }
   bool hasTask = false;
-  if (mysql_num_rows(res) == 0) {
+  if (curUserInfo.userID == "" || curUserInfo.deviceID == "") {
     // 向数据库插入数据
     int rlt = userInit(userID, deviceID, conn);
     if (rlt == -1) {
       co_await co_await stdio().putline("init userInfo error"s);
     }
-  } else if (mysql_num_rows(res) > 1) {
-    co_await co_await stdio().putline("userInfo nums error"s);
   } else {
-    int num_fields = mysql_num_fields(res);
-    MYSQL_ROW row = mysql_fetch_row(res);
-    MAAUser user{.userID = row[0] ? row[0] : "",
-                 .deviceID = row[1] ? row[1] : "",
-                 .dailyTaskTime = row[2] ? row[2] : "",
-                 .taskStartTime = row[3] ? row[3] : "",
-                 .taskEndTime = row[4] ? row[4] : "",
-                 .taskStrategy = row[5] ? row[5] : "",
-                 .dailyTaskID = row[6] ? row[6] : ""};
     auto now = std::chrono::system_clock::now();
     std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
     std::tm tmNow = *std::localtime(&nowTime);
@@ -209,8 +195,10 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
     // 检查taskStartTime是否超过了dailyTaskTime并且当前时间超过taskStartTime2个小时(重发任务)
     // 其他情况不更新任务状态
 
-    auto tmDailyTaskTime = stringToTm(user.dailyTaskTime, "%Y-%m-%d %H:%M:%S");
-    auto tmTaskStartTime = stringToTm(user.taskStartTime, "%Y-%m-%d %H:%M:%S");
+    auto tmDailyTaskTime =
+        stringToTm(curUserInfo.dailyTaskTime, "%Y-%m-%d %H:%M:%S");
+    auto tmTaskStartTime =
+        stringToTm(curUserInfo.taskStartTime, "%Y-%m-%d %H:%M:%S");
     auto temptm = std::mktime(&tmTaskStartTime) + 2 * 60 * 60;
 
     auto tmExpectedTaskStartTime = *std::localtime(&temptm);
@@ -223,9 +211,8 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
         (isTimeAfter(tmTaskStartTime, tmDailyTaskTime) &&
          isTimeAfter(tmNow, tmExpectedTaskStartTime))) {
 // 更新任务状态&&重发任务
-#if CO_ASYNC_DEBUG
-      co_await co_await stdio().putline("send task to"s + user.userID);
-#endif
+      debug(), "send task to"s , curUserInfo.userID;
+
       std::string curTaskID = generateUUID();
       std::unordered_map<std::string, std::string> updateColMap;
       updateColMap["taskStartTime"] = strNewStartTaskTime;
@@ -239,25 +226,20 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
       if (dayOfWeek == 0) {
         dayOfWeek = 7;
       }
-      auto taskStrategy = stringToJson(user.taskStrategy);
+      auto taskStrategy = stringToJson(curUserInfo.taskStrategy);
 
       responseDOM = getDailyTask(
           curTaskID,
           taskStrategy[std::to_string(dayOfWeek).c_str()].GetArray());
 
-      bool updateRes =
-          updateMAAUser(conn, user.userID, user.deviceID, updateColMap);
+      bool updateRes = updateMAAUser(conn, curUserInfo.userID,
+                                     curUserInfo.deviceID, updateColMap);
       if (!updateRes) {
-#if CO_ASYNC_DEBUG
-        co_await co_await stdio().putline("update task error"s);
-#endif
+        debug(), "update task error"s ;
       }
       hasTask = true;
     } else {
-#if CO_ASYNC_DEBUG
-      co_await co_await stdio().putline("no need to update task"s +
-                                        user.userID);
-#endif
+      debug(),"no need to update task"s,curUserInfo.userID;                                  
     }
   }
   if (!hasTask) {
@@ -376,19 +358,38 @@ Task<Expected<>> getStrategy(HTTPServer::IO &io) {
   auto deviceID = requestDOM["device"].GetString();
   auto storeUserInfo = queryMAAUserStrategy(conn, userID, deviceID);
   if (storeUserInfo.userID == "" || storeUserInfo.deviceID == "") {
-#ifdef CO_ASYNC_DEBUG
-    co_await co_await stdio().putline("userInfo not exist"s);
-#endif
+
+    debug(), "userInfo not exist"s;
+
     co_await co_await HTTPServerUtils::make_ok_response(io,
                                                         "userInfo not exist");
   } else {
     auto taskStrategy = storeUserInfo.taskStrategy;
-#ifdef CO_ASYNC_DEBUG
-    co_await co_await stdio().putline(taskStrategy);
-#endif
+
+    debug(), taskStrategy;
+
     co_await co_await HTTPServerUtils::make_ok_response(io, taskStrategy);
   }
   co_await connPool->ReleaseConnection(conn);
 
+  co_return {};
+}
+
+Task<Expected<>> quickTask(HTTPServer::IO &io) {
+  auto connPool = connectionPool::GetInstance();
+  auto conn = co_await connPool->GetConnection();
+  auto request = co_await io.request_body();
+  rapidjson::Document requestDOM;
+  requestDOM.Parse(request.value().c_str());
+  auto userID = requestDOM["user"].GetString();
+  auto deviceID = requestDOM["device"].GetString();
+  auto storeUserInfo = queryMAAUserInfo(conn, userID, deviceID);
+  if (storeUserInfo.userID == "" || storeUserInfo.deviceID == "") {
+    debug(), "userInfo not exist"s;
+    co_await co_await HTTPServerUtils::make_ok_response(io,
+                                                        "userInfo not exist");
+  } else {
+  }
+  co_await connPool->ReleaseConnection(conn);
   co_return {};
 }

@@ -1,3 +1,5 @@
+#include "co_async/awaiter/task.hpp"
+#include "co_async/utils/expected.hpp"
 #include <co_async/co_async.hpp>
 #include <co_async/std.hpp>
 
@@ -12,3 +14,5 @@ Task<Expected<>> updateLevel(HTTPServer::IO &io);
 Task<Expected<>> updateStrategy(HTTPServer::IO &io);
 
 Task<Expected<>> getStrategy(HTTPServer::IO &io);
+
+Task<Expected<>> quickTask(HTTPServer::IO &io);
