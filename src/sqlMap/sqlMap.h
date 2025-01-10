@@ -2,7 +2,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-
+#pragma once
 //TODO:重构
 struct MAAUser{
     std::string userID;
@@ -14,6 +14,7 @@ struct MAAUser{
 };
 
 struct MAADailyTaskPlan{
+    std::string planID;
     std::string userID;
     std::string deviceID;
     std::string dailyTaskStrategy;
@@ -44,14 +45,32 @@ int insertMAAQucikTask(MYSQL *conn, const std::vector<MAAQucikTask>& quickTaskLi
 
 int insertMAAAction(MYSQL *conn, const std::vector<MAAAction>& actionList);
 
-int insertMAAUserInit(MYSQL *conn, std::string userID, std::string deviceID, std::string taskStrategy,std::string dailyTaskTime, std::string curTaskDefaultTime);
+int insertMAAUser(MYSQL *conn, const std::vector<MAAUser>& userList);
 
-MAAUser queryMAAUserAllInfo(MYSQL *conn, std::string userID, std::string deviceID);
+std::vector<MAAUser> queryMAAUserAllInfo(MYSQL *conn, std::string userID, std::string deviceID);
 
-MAAUser queryMAAUserInfo(MYSQL *conn, std::string userID, std::string deviceID);
+std::vector<MAAUser> queryMAAUserInfo(MYSQL *conn, std::string userID, std::string deviceID);
 
-MAAUser queryMAAUserTaskStatus(MYSQL *conn, std::string userID, std::string deviceID);
+std::vector<MAAUser> queryMAAUserTaskStatus(MYSQL *conn, std::string userID, std::string deviceID);
 
-MAAUser queryMAAUserStrategy(MYSQL *conn, std::string userID, std::string deviceID);
+std::vector<MAADailyTaskPlan> queryMAAUserStrategy(MYSQL *conn, std::string userID, std::string deviceID);
+
+std::vector<MAAQucikTask> queryMAAQuickTask(MYSQL *conn, std::string userID, std::string deviceID,std::string taskIsFinish);
+
+std::vector<MAAAction> queryMAAAction(MYSQL *conn, std::string actionID);
+
+std::vector<MAAAction> queryMAAAction(MYSQL *conn, std::string taskID, std::string actionIsFinish);
+
+
 
 bool updateMAAUser(MYSQL *conn, std::string userID, std::string deviceID,std::unordered_map<std::string, std::string>& updateColMap);
+
+bool updateMAAAction(MYSQL *conn,std::string actionID,std::string actionIsFinish);
+
+bool updateMAAQucikTask(MYSQL *conn, std::string taskID,std::unordered_map<std::string, std::string>& updateColMap);
+
+bool updateMAADailyTaskPlan(MYSQL *conn, std::string planID,std::string userID,std::string deviceID,std::unordered_map<std::string, std::string>& updateColMap);
+
+bool deleteMAADailyTaskPlan(MYSQL *conn, std::string planID);
+
+bool deleteAllMAADailyTaskPlan(MYSQL *conn, std::string userID, std::string deviceID);
