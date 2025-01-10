@@ -8,7 +8,7 @@
 #include <error.h>
 #include <string>
 #include <co_async/co_async.hpp>
-
+#pragma once
 using namespace std;
 
 class connectionPool

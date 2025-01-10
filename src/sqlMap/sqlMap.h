@@ -1,7 +1,7 @@
 #include <mysql/mysql.h>
 #include <string>
 #include <unordered_map>
-
+#pragma once
 //TODO:重构
 struct MAAUser{
     std::string userID;

@@ -1,6 +1,5 @@
 #include "sqlMap.h"
 #include <cstring>
-#include <mysql/field_types.h>
 #include <string>
 #include <vector>
 
@@ -174,11 +173,13 @@ MAAUser queryMAAUserInfo(MYSQL *conn, std::string userID,
     resultBind[i].length = nullptr;
   }
   if (mysql_stmt_bind_result(stmt, resultBind)) {
+    mysql_free_result(res);
     mysql_stmt_close(stmt);
     return MAAUser();
   }
 
   if (mysql_stmt_fetch(stmt) == 1) {
+    mysql_free_result(res);
     mysql_stmt_close(stmt);
     return MAAUser();
   } else {
@@ -186,7 +187,7 @@ MAAUser queryMAAUserInfo(MYSQL *conn, std::string userID,
       v.resize(strlen(v.c_str()));
     }
   }
-
+  mysql_free_result(res);
   mysql_stmt_close(stmt);
   return MAAUser{.userID = vals[0], .deviceID = vals[1]};
 }
@@ -247,11 +248,13 @@ MAAUser queryMAAUserTaskStatus(MYSQL *conn, std::string userID,
   }
 
   if (mysql_stmt_bind_result(stmt, resultBind)) {
+    mysql_free_result(res);
     mysql_stmt_close(stmt);
     return MAAUser();
   }
 
   if (mysql_stmt_fetch(stmt) == 1) {
+    mysql_free_result(res);
     mysql_stmt_close(stmt);
     return MAAUser();
   } else {
@@ -259,7 +262,7 @@ MAAUser queryMAAUserTaskStatus(MYSQL *conn, std::string userID,
       v.resize(strlen(v.c_str()));
     }
   }
-
+  mysql_free_result(res);
   mysql_stmt_close(stmt);
   return MAAUser{.dailyTaskTime = vals[0], .dailyTaskID = vals[1]};
 }
@@ -320,11 +323,13 @@ MAAUser queryMAAUserStrategy(MYSQL *conn, std::string userID,
   }
 
   if (mysql_stmt_bind_result(stmt, resultBind)) {
+    mysql_free_result(res);
     mysql_stmt_close(stmt);
     return MAAUser();
   }
 
   if (mysql_stmt_fetch(stmt) == 1) {
+    mysql_free_result(res);
     mysql_stmt_close(stmt);
     return MAAUser();
   } else {
@@ -332,7 +337,7 @@ MAAUser queryMAAUserStrategy(MYSQL *conn, std::string userID,
       v.resize(strlen(v.c_str()));
     }
   }
-
+  mysql_free_result(res);
   mysql_stmt_close(stmt);
   return MAAUser{.userID = vals[0], .deviceID = vals[1], .taskStrategy = vals[2]};
 }
@@ -391,11 +396,13 @@ MAAUser queryMAAUserAllInfo(MYSQL *conn, std::string userID, std::string deviceI
   }
 
   if (mysql_stmt_bind_result(stmt, resultBind)) {
+    mysql_free_result(res);
     mysql_stmt_close(stmt);
     return MAAUser();
   }
 
   if (mysql_stmt_fetch(stmt) == 1) {
+    mysql_free_result(res);
     mysql_stmt_close(stmt);
     return MAAUser();
   } else {
@@ -403,7 +410,7 @@ MAAUser queryMAAUserAllInfo(MYSQL *conn, std::string userID, std::string deviceI
       v.resize(strlen(v.c_str()));
     }
   }
-
+  mysql_free_result(res);
   mysql_stmt_close(stmt);
   return MAAUser{.userID = vals[0], .deviceID = vals[1], .dailyTaskTime = vals[2], .taskStartTime = vals[3], .taskEndTime = vals[4], .taskStrategy = vals[5], .dailyTaskID = vals[6]};
 }
