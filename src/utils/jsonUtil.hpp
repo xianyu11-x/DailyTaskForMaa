@@ -2,7 +2,7 @@
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 #include <string>
-
+#pragma once
 
 std::string jsonToString(rapidjson::Document& doc){
     rapidjson::StringBuffer buffer;

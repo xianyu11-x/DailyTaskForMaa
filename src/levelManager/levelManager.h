@@ -5,7 +5,7 @@
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
-
+#pragma once
 class levelManager {
     public:
         static levelManager *GetInstance();

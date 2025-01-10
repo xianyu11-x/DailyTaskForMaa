@@ -2,7 +2,7 @@
 #include <sstream>
 #include <iomanip>
 #include <ctime>
-
+#pragma once
 std::tm stringToTm(const std::string& timeStr, const std::string& format) {
     std::tm tm = {};
     std::istringstream ss(timeStr);

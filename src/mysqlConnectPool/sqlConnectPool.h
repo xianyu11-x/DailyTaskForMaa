@@ -1,5 +1,4 @@
-#ifndef _CONNECTION_POOL_
-#define _CONNECTION_POOL_
+#pragma once
 
 #include "co_async/generic/semaphore.hpp"
 #include <mutex>
@@ -47,4 +46,3 @@ public:
 
 
 
-#endif

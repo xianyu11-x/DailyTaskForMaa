@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
+#pragma once
 struct dbInfo {
   std::string url;
   std::string user;

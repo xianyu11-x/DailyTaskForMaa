@@ -3,7 +3,7 @@
 #include <regex>
 #include <string>
 #include <utility>
-
+#pragma once
 bool isLevelName(const std::string &name) {
     const std::regex pattern(R"(^[A-Za-z0-9]+-[0-9]+$)");
     return std::regex_match(name, pattern);

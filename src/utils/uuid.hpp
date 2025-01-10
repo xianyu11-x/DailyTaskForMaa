@@ -2,6 +2,7 @@
 #include <random>
 #include <sstream>
 #include <iomanip>
+#pragma once
 
 std::string generateUUID() {
     std::random_device rd;
