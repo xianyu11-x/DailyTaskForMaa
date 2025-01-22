@@ -14,6 +14,7 @@
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 #include <chrono>
+#include <cstddef>
 #include <ctime>
 #include <functional>
 #include <iomanip>
@@ -177,14 +178,19 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
 
   std::string userID = requestDOM["user"].GetString();
   std::string deviceID = requestDOM["device"].GetString();
-
+  if(conn == nullptr){
+    int connNum = connPool->GetFreeConn();
+    co_await co_await stdio().putline("conn is nullptr; has freeConn "s + std::to_string(connNum));
+  }
   auto curUserInfo = queryMAAUserAllInfo(conn, userID, deviceID);
+  std::cerr << "Queried user info: userID=" << curUserInfo.userID << ", deviceID=" << curUserInfo.deviceID << std::endl;
 
   bool hasTask = false;
   if (curUserInfo.userID == "" || curUserInfo.deviceID == "") {
     // 向数据库插入数据
     int rlt = userInit(userID, deviceID, conn);
     if (rlt == -1) {
+      std::cerr << "init userInfo error" << std::endl;
       co_await co_await stdio().putline("init userInfo error"s);
     }
   } else {
@@ -273,6 +279,7 @@ Task<Expected<>> reportStatus(HTTPServer::IO &io) {
   std::string deviceID = requestDOM["device"].GetString();
   std::string returnTaskID = requestDOM["task"].GetString();
   auto storeUserInfo = queryMAAUserInfo(conn, userID, deviceID);
+  std::cerr << "reportStatus: Queried user info: userID=" << storeUserInfo.userID << ", deviceID=" << storeUserInfo.deviceID << std::endl;
   if (storeUserInfo.userID == "" || storeUserInfo.deviceID == "") {
     co_await co_await stdio().putline("userInfo not exist"s);
   } else {
@@ -344,7 +351,6 @@ Task<Expected<>> updateStrategy(HTTPServer::IO &io) {
     co_await co_await stdio().putline("update task error"s);
   }
   co_await connPool->ReleaseConnection(conn);
-  co_await co_await HTTPServerUtils::make_ok_response(io, "updateStrategy");
   co_return {};
 }
 
@@ -357,6 +363,7 @@ Task<Expected<>> getStrategy(HTTPServer::IO &io) {
   auto userID = requestDOM["user"].GetString();
   auto deviceID = requestDOM["device"].GetString();
   auto storeUserInfo = queryMAAUserStrategy(conn, userID, deviceID);
+  std::cerr << "Queried user info: userID=" << storeUserInfo.userID << ", deviceID=" << storeUserInfo.deviceID << std::endl;
   if (storeUserInfo.userID == "" || storeUserInfo.deviceID == "") {
 
     debug(), "userInfo not exist"s;

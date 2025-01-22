@@ -2,6 +2,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <iostream>
 
 int insertMAAUserInit(MYSQL *conn, std::string userID, std::string deviceID,
                       std::string taskStrategy, std::string dailyTaskTime,
@@ -346,9 +347,11 @@ MAAUser queryMAAUserAllInfo(MYSQL *conn, std::string userID, std::string deviceI
   std::string sql = "SELECT userID,deviceID,dailyTaskTime,taskStartTime,taskEndTime,taskStrategy,dailyTaskID FROM MAAUser WHERE userID = ? AND deviceID = ?";
   MYSQL_STMT *stmt = mysql_stmt_init(conn);
   if (!stmt) {
+    std::cerr << "Failed to initialize statement" << std::endl;
     return MAAUser();
   }
   if (mysql_stmt_prepare(stmt, sql.c_str(), sql.size())) {
+    std::cerr << "Failed to prepare statement: " << mysql_stmt_error(stmt) << std::endl;
     mysql_stmt_close(stmt);
     return MAAUser();
   }
@@ -369,6 +372,7 @@ MAAUser queryMAAUserAllInfo(MYSQL *conn, std::string userID, std::string deviceI
   }
 
   if (mysql_stmt_execute(stmt)) {
+    std::cerr << "Failed to execute statement: " << mysql_stmt_error(stmt) << std::endl;
     mysql_stmt_close(stmt);
     return MAAUser();
   }
@@ -402,6 +406,7 @@ MAAUser queryMAAUserAllInfo(MYSQL *conn, std::string userID, std::string deviceI
   }
 
   if (mysql_stmt_fetch(stmt) == 1) {
+    std::cerr << "No results found" << std::endl;
     mysql_free_result(res);
     mysql_stmt_close(stmt);
     return MAAUser();
@@ -412,5 +417,6 @@ MAAUser queryMAAUserAllInfo(MYSQL *conn, std::string userID, std::string deviceI
   }
   mysql_free_result(res);
   mysql_stmt_close(stmt);
+  std::cerr << "Query result: userID=" << vals[0] << ", deviceID=" << vals[1] << std::endl;
   return MAAUser{.userID = vals[0], .deviceID = vals[1], .dailyTaskTime = vals[2], .taskStartTime = vals[3], .taskEndTime = vals[4], .taskStrategy = vals[5], .dailyTaskID = vals[6]};
 }
