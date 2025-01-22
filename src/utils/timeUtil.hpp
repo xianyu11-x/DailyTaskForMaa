@@ -19,7 +19,7 @@ std::string tmToString(const std::tm& tm, const std::string& format) {
     return oss.str();
 }
 
-
+//当lhs时间晚于rhs时间时返回true
 bool isTimeAfter(const std::tm& lhs, const std::tm& rhs) {
     return std::mktime(const_cast<std::tm*>(&lhs)) > std::mktime(const_cast<std::tm*>(&rhs));
 }

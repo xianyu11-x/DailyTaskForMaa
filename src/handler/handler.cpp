@@ -193,13 +193,13 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
         stringToTm(curUserInfo.taskStartTime, "%Y-%m-%d %H:%M:%S");
     auto temptm = std::mktime(&tmTaskStartTime) + 2 * 60 * 60;
 
-    auto tmExpectedTaskStartTime = *std::localtime(&temptm);
+    auto tmExpireTaskStartTime = *std::localtime(&temptm);
     std::string strNewStartTaskTime = tmToString(tmNow, "%Y-%m-%d %H:%M:%S");
 
     if ((isTimeAfter(tmNow, tmDailyTaskTime) &&
          isTimeAfter(tmDailyTaskTime, tmTaskStartTime)) ||
         (isTimeAfter(tmTaskStartTime, tmDailyTaskTime) &&
-         isTimeAfter(tmNow, tmExpectedTaskStartTime))) {
+         isTimeAfter(tmNow, tmExpireTaskStartTime))) {
       // 更新任务状态&&重发任务
       debug(), "send task to"s, curUserInfo.userID;
 
@@ -229,12 +229,13 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
                 [](const MAADailyTaskPlan &a, const MAADailyTaskPlan &b) {
                   return a.taskSeconds < b.taskSeconds;
                 });
-      auto planIter = upper_bound(
-          MAAPlans.begin(), MAAPlans.end(), tmNow.tm_hour * 3600 + tmNow.tm_min * 60 + tmNow.tm_sec,
-          [](const int &a, const MAADailyTaskPlan &b) {
-            return a < b.taskSeconds;
-          });
-      if(planIter == MAAPlans.begin()){
+      auto planIter =
+          upper_bound(MAAPlans.begin(), MAAPlans.end(),
+                      tmNow.tm_hour * 3600 + tmNow.tm_min * 60 + tmNow.tm_sec,
+                      [](const int &a, const MAADailyTaskPlan &b) {
+                        return a < b.taskSeconds;
+                      });
+      if (planIter == MAAPlans.begin()) {
         planIter = MAAPlans.end();
       }
       planIter--;
@@ -250,8 +251,30 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
       }
       hasTask = true;
     } else {
-      //TODO:检查有没有quickTask需要下发
+      // TODO:检查有没有quickTask需要下发
       debug(), "no need to update task"s, curUserInfo.userID;
+      string taskStr;
+      auto quickTasks = queryMAAQuickTask(conn, curUserInfo.userID,
+                                          curUserInfo.deviceID, "0");
+      for (const auto &quickTask : quickTasks) {
+        auto quickTaskStartTime =
+            stringToTm(quickTask.taskStartTime, "%Y-%m-%d %H:%M:%S");
+        auto quickTaskCommitTime =
+            stringToTm(quickTask.taskCommitTime, "%Y-%m-%d %H:%M:%S");
+        auto quickTaskExpireTime = std::mktime(&quickTaskStartTime) + 2 * 60 * 60;
+        auto tmExpireQuickTaskStartTime = *std::localtime(&quickTaskExpireTime);
+        if (isTimeAfter(quickTaskCommitTime, quickTaskStartTime) || isTimeAfter(tmNow, tmExpireQuickTaskStartTime)) {
+          taskStr = quickTask.taskActions;
+          std::unordered_map<std::string, std::string> updateColMap;
+          updateColMap["taskStartTime"] = strNewStartTaskTime;
+          updateMAAQucikTask(conn, quickTask.taskID, updateColMap);
+          break;
+        }
+      }
+      auto quickTaskList = stringToJson(taskStr);
+      auto quickUuid = generateUUID();
+      auto responseDOM = getDailyTask(quickUuid, quickTaskList.GetArray());
+      hasTask = true;
     }
   }
   if (!hasTask) {
