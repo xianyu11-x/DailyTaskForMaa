@@ -13,6 +13,7 @@
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
+#include <algorithm>
 #include <chrono>
 #include <ctime>
 #include <functional>
@@ -27,7 +28,6 @@ rapidjson::Document getDefaultStrategy() {
   rapidjson::Document defaultStrategy;
   defaultStrategy.SetObject();
   auto &allocator = defaultStrategy.GetAllocator();
-  // TODO：默认策略保存在配置文件中
   auto confManager = confManager::GetInstance();
   auto dailyTaskParams = confManager->getDefaultLevelList();
   // vector<std::string> dailyTaskParams = {"AP-5", "CE-6",   "PR-C-2",
@@ -37,10 +37,6 @@ rapidjson::Document getDefaultStrategy() {
     rapidjson::Value task1(rapidjson::kObjectType);
     task1.AddMember("taskType", "Settings-Stage1", allocator);
     rapidjson::Value paramsArray(rapidjson::kArrayType);
-    // paramsArray.PushBack(rapidjson::Value("sideStory", allocator),
-    // allocator); paramsArray.PushBack(
-    //     rapidjson::Value(dailyTaskParams[i - 1].c_str(), allocator),
-    //     allocator);
     for (const auto &level : dailyTaskParams[i - 1]) {
       paramsArray.PushBack(rapidjson::Value(level.c_str(), allocator),
                            allocator);
@@ -53,17 +49,6 @@ rapidjson::Document getDefaultStrategy() {
     rapidjson::Value key(std::to_string(i).c_str(), allocator);
     defaultStrategy.AddMember(key, strategyArray, allocator);
   }
-  // rapidjson::Value sundayStrategyArray(rapidjson::kArrayType);
-  // rapidjson::Value sundayTask1(rapidjson::kObjectType);
-  // sundayTask1.AddMember("taskType", "Settings-Stage1", allocator);
-  // rapidjson::Value paramsArray(rapidjson::kArrayType);
-  // paramsArray.PushBack(rapidjson::Value("剿灭模式", allocator), allocator);
-  // sundayTask1.AddMember("params", paramsArray, allocator);
-  // sundayStrategyArray.PushBack(sundayTask1, allocator);
-  // rapidjson::Value sundayTask2(rapidjson::kObjectType);
-  // sundayTask2.AddMember("taskType", "LinkStart", allocator);
-  // sundayStrategyArray.PushBack(sundayTask2, allocator);
-  // defaultStrategy.AddMember("7", sundayStrategyArray, allocator);
   return defaultStrategy;
 }
 
@@ -133,32 +118,38 @@ rapidjson::Document getDailyTask(const std::string &coreTaskId,
 }
 
 int userInit(std::string userID, std::string deviceID, MYSQL *conn) {
-  // TODO:从json文件中读取用户信息
   auto defaultStrategy = getDefaultStrategy();
-  rapidjson::StringBuffer buffer;
-  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-  defaultStrategy.Accept(writer);
-  std::string defaultStrategyStr = buffer.GetString();
+  std::string defaultStrategyStr = jsonToString(defaultStrategy);
 
+  auto confManager = confManager::GetInstance();
+  auto &dailyTaskTimeList = confManager->getDefaultDailyTaskTimeList();
+  vector<MAADailyTaskPlan> initMAAPlanList;
+  for (const auto &dailyTaskTime : dailyTaskTimeList) {
+    initMAAPlanList.push_back(
+        MAADailyTaskPlan{.planID = generateUUID(),
+                         .userID = userID,
+                         .deviceID = deviceID,
+                         .dailyTaskStrategy = defaultStrategyStr,
+                         .dailyTaskTime = dailyTaskTime});
+  }
+  int resPlan = insertMAADailyTaskPlan(conn, initMAAPlanList);
+  if (resPlan == -1) {
+    return resPlan;
+  }
   // 生成默认的每日任务时间
   auto now = std::chrono::system_clock::now();
   std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
   std::tm dailyTaskTime = *std::localtime(&nowTime);
-  dailyTaskTime.tm_hour = 1;
-  dailyTaskTime.tm_min = 0;
-  dailyTaskTime.tm_sec = 0;
-  std::ostringstream oss;
-  oss << std::put_time(&dailyTaskTime, "%Y-%m-%d %H:%M:%S");
-  std::string strTaskTime = oss.str();
-
-  // 设置当前任务默认状态
   dailyTaskTime.tm_year--;
-  oss.str("");
-  oss << std::put_time(&dailyTaskTime, "%Y-%m-%d %H:%M:%S");
-  std::string curTaskDefaultTime = oss.str();
-
-  int res = insertMAAUserInit(conn, userID, deviceID, defaultStrategyStr,
-                              strTaskTime, curTaskDefaultTime);
+  std::string strTaskTime = tmToString(dailyTaskTime, "%Y-%m-%d %H:%M:%S");
+  vector<MAAUser> initMAAUserList;
+  initMAAUserList.push_back(MAAUser{.userID = userID,
+                                    .deviceID = deviceID,
+                                    .nextDailyTaskTime = strTaskTime,
+                                    .taskStartTime = strTaskTime,
+                                    .taskEndTime = strTaskTime,
+                                    .dailyTaskID = ""});
+  int res = insertMAAUser(conn, initMAAUserList);
   return res;
 }
 
@@ -178,16 +169,17 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
   std::string userID = requestDOM["user"].GetString();
   std::string deviceID = requestDOM["device"].GetString();
 
-  auto curUserInfo = queryMAAUserAllInfo(conn, userID, deviceID);
+  auto curUserInfos = queryMAAUserAllInfo(conn, userID, deviceID);
 
   bool hasTask = false;
-  if (curUserInfo.userID == "" || curUserInfo.deviceID == "") {
+  if (curUserInfos.empty()) {
     // 向数据库插入数据
     int rlt = userInit(userID, deviceID, conn);
     if (rlt == -1) {
       co_await co_await stdio().putline("init userInfo error"s);
     }
   } else {
+    auto curUserInfo = curUserInfos[0];
     auto now = std::chrono::system_clock::now();
     std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
     std::tm tmNow = *std::localtime(&nowTime);
@@ -196,22 +188,20 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
     // 其他情况不更新任务状态
 
     auto tmDailyTaskTime =
-        stringToTm(curUserInfo.dailyTaskTime, "%Y-%m-%d %H:%M:%S");
+        stringToTm(curUserInfo.nextDailyTaskTime, "%Y-%m-%d %H:%M:%S");
     auto tmTaskStartTime =
         stringToTm(curUserInfo.taskStartTime, "%Y-%m-%d %H:%M:%S");
     auto temptm = std::mktime(&tmTaskStartTime) + 2 * 60 * 60;
 
     auto tmExpectedTaskStartTime = *std::localtime(&temptm);
-    std::ostringstream oss;
-    oss << std::put_time(&tmNow, "%Y-%m-%d %H:%M:%S");
-    std::string strNewStartTaskTime = oss.str();
+    std::string strNewStartTaskTime = tmToString(tmNow, "%Y-%m-%d %H:%M:%S");
 
     if ((isTimeAfter(tmNow, tmDailyTaskTime) &&
          isTimeAfter(tmDailyTaskTime, tmTaskStartTime)) ||
         (isTimeAfter(tmTaskStartTime, tmDailyTaskTime) &&
          isTimeAfter(tmNow, tmExpectedTaskStartTime))) {
-// 更新任务状态&&重发任务
-      debug(), "send task to"s , curUserInfo.userID;
+      // 更新任务状态&&重发任务
+      debug(), "send task to"s, curUserInfo.userID;
 
       std::string curTaskID = generateUUID();
       std::unordered_map<std::string, std::string> updateColMap;
@@ -226,8 +216,29 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
       if (dayOfWeek == 0) {
         dayOfWeek = 7;
       }
-      auto taskStrategy = stringToJson(curUserInfo.taskStrategy);
-
+      // TODO:根据MAADailyTaskPlan获取任务策略
+      auto MAAPlans =
+          queryMAAUserStrategy(conn, curUserInfo.userID, curUserInfo.deviceID);
+      for (auto &MAAPlan : MAAPlans) {
+        auto dailyTaskTimeTm = stringToTm(MAAPlan.dailyTaskTime, "%H:%M:%S");
+        MAAPlan.taskSeconds =
+            (dailyTaskTimeTm.tm_hour * 3600 + dailyTaskTimeTm.tm_min * 60 +
+             dailyTaskTimeTm.tm_sec);
+      }
+      std::sort(MAAPlans.begin(), MAAPlans.end(),
+                [](const MAADailyTaskPlan &a, const MAADailyTaskPlan &b) {
+                  return a.taskSeconds < b.taskSeconds;
+                });
+      auto planIter = upper_bound(
+          MAAPlans.begin(), MAAPlans.end(), tmNow.tm_hour * 3600 + tmNow.tm_min * 60 + tmNow.tm_sec,
+          [](const int &a, const MAADailyTaskPlan &b) {
+            return a < b.taskSeconds;
+          });
+      if(planIter == MAAPlans.begin()){
+        planIter = MAAPlans.end();
+      }
+      planIter--;
+      auto taskStrategy = stringToJson(planIter->dailyTaskStrategy);
       responseDOM = getDailyTask(
           curTaskID,
           taskStrategy[std::to_string(dayOfWeek).c_str()].GetArray());
@@ -235,11 +246,12 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
       bool updateRes = updateMAAUser(conn, curUserInfo.userID,
                                      curUserInfo.deviceID, updateColMap);
       if (!updateRes) {
-        debug(), "update task error"s ;
+        debug(), "update task error"s;
       }
       hasTask = true;
     } else {
-      debug(),"no need to update task"s,curUserInfo.userID;                                  
+      //TODO:检查有没有quickTask需要下发
+      debug(), "no need to update task"s, curUserInfo.userID;
     }
   }
   if (!hasTask) {
@@ -265,42 +277,77 @@ Task<Expected<>> reportStatus(HTTPServer::IO &io) {
   auto conn = co_await connPool->GetConnection();
 
   auto request = co_await io.request_body();
-
   rapidjson::Document requestDOM;
   rapidjson::Document responseDOM;
   requestDOM.Parse(request.value().c_str());
   std::string userID = requestDOM["user"].GetString();
   std::string deviceID = requestDOM["device"].GetString();
   std::string returnTaskID = requestDOM["task"].GetString();
-  auto storeUserInfo = queryMAAUserInfo(conn, userID, deviceID);
-  if (storeUserInfo.userID == "" || storeUserInfo.deviceID == "") {
-    co_await co_await stdio().putline("userInfo not exist"s);
+  auto storeUserInfos = queryMAAUserTaskStatus(conn, userID, deviceID);
+  auto now = std::chrono::system_clock::now();
+  std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
+  std::tm tmNow = *std::localtime(&nowTime);
+  int curSecond = tmNow.tm_hour * 3600 + tmNow.tm_min * 60 + tmNow.tm_sec;
+  if (storeUserInfos.empty() || storeUserInfos.size() > 1) {
+    debug(), "userInfo not exist"s;
   } else {
-    auto storeTaskInfo = queryMAAUserTaskStatus(conn, storeUserInfo.userID,
-                                                storeUserInfo.deviceID);
-    if (storeTaskInfo.dailyTaskID == returnTaskID) {
-      auto now = std::chrono::system_clock::now();
-      std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
-      std::tm tmNow = *std::localtime(&nowTime);
-      std::string strTaskEndTime = tmToString(tmNow, "%Y-%m-%d %H:%M:%S");
-
-      auto curDailyTaskTime =
-          stringToTm(storeTaskInfo.dailyTaskTime, "%Y-%m-%d %H:%M:%S");
-      auto nextDailyTaskTime = DateAdd(curDailyTaskTime, 60 * 60 * 24);
-      std::unordered_map<std::string, std::string> updateColMap;
-      updateColMap["taskEndTime"] = strTaskEndTime;
-      updateColMap["dailyTaskTime"] =
-          tmToString(nextDailyTaskTime, "%Y-%m-%d %H:%M:%S");
-      bool updateRes = updateMAAUser(conn, storeUserInfo.userID,
-                                     storeUserInfo.deviceID, updateColMap);
-      if (!updateRes) {
-#if CO_ASYNC_DEBUG
-        co_await co_await stdio().putline("update task error"s);
-#endif
+    auto storeUserInfo = storeUserInfos[0];
+    if (storeUserInfo.dailyTaskID == returnTaskID) {
+      auto MAAPlans = queryMAAUserStrategy(conn, userID, deviceID);
+      if (MAAPlans.empty()) {
+        debug(), "userInfo not exist"s;
+      } else {
+        for (auto &MAAPlan : MAAPlans) {
+          auto dailyTaskTimeTm = stringToTm(MAAPlan.dailyTaskTime, "%H:%M:%S");
+          MAAPlan.taskSeconds =
+              (dailyTaskTimeTm.tm_hour * 3600 + dailyTaskTimeTm.tm_min * 60 +
+               dailyTaskTimeTm.tm_sec);
+        }
+        std::sort(MAAPlans.begin(), MAAPlans.end(),
+                  [](const MAADailyTaskPlan &a, const MAADailyTaskPlan &b) {
+                    return a.taskSeconds < b.taskSeconds;
+                  });
+        auto planIter =
+            upper_bound(MAAPlans.begin(), MAAPlans.end(), curSecond,
+                        [](const int &a, const MAADailyTaskPlan &b) {
+                          return a < b.taskSeconds;
+                        });
+        bool nextDay = false;
+        if (planIter == MAAPlans.end()) {
+          planIter = MAAPlans.begin();
+          nextDay = true;
+        }
+        std::tm nextDailyTaskTime = tmNow;
+        auto nextDailyTaskTimeTm =
+            stringToTm(planIter->dailyTaskTime, "%H:%M:%S");
+        nextDailyTaskTime.tm_hour = nextDailyTaskTimeTm.tm_hour;
+        nextDailyTaskTime.tm_min = nextDailyTaskTimeTm.tm_min;
+        nextDailyTaskTime.tm_sec = nextDailyTaskTimeTm.tm_sec;
+        if (nextDay) {
+          auto newTm = DateAdd(nextDailyTaskTime, 24 * 60 * 60);
+          nextDailyTaskTime = newTm;
+        }
+        std::string strTaskEndTime = tmToString(tmNow, "%Y-%m-%d %H:%M:%S");
+        std::unordered_map<std::string, std::string> updateColMap;
+        updateColMap["taskEndTime"] = strTaskEndTime;
+        updateColMap["nextDailyTaskTime"] =
+            tmToString(nextDailyTaskTime, "%Y-%m-%d %H:%M:%S");
+        bool updateRes = updateMAAUser(conn, userID, deviceID, updateColMap);
+      }
+    } else {
+      auto MAAActions = queryMAAAction(conn, returnTaskID);
+      if (!MAAActions.empty()) {
+        updateMAAAction(conn, returnTaskID, "1");
+        auto quickTaskID = MAAActions[0].taskID;
+        auto unFinishActions = queryMAAAction(conn, quickTaskID, "0");
+        if (unFinishActions.empty()) {
+          std::unordered_map<std::string, std::string> updateColMap;
+          updateColMap["taskIsFinish"] = "1";
+          updateMAAQucikTask(conn, quickTaskID, updateColMap);
+        }
       }
     }
   }
-
   co_await connPool->ReleaseConnection(conn);
   co_await co_await HTTPServerUtils::make_ok_response(io,
                                                       "<h1>reportStatus!</h1>");
@@ -336,16 +383,55 @@ Task<Expected<>> updateStrategy(HTTPServer::IO &io) {
   auto conn = co_await connPool->GetConnection();
   auto userID = requestDOM["user"].GetString();
   auto deviceID = requestDOM["device"].GetString();
-  auto taskStrategy = requestDOM["strategy"].GetString();
-  std::unordered_map<std::string, std::string> updateColMap;
-  updateColMap["taskStrategy"] = taskStrategy;
-  bool updateRes = updateMAAUser(conn, userID, deviceID, updateColMap);
-  if (!updateRes) {
-    co_await co_await stdio().putline("update task error"s);
+  auto taskStrategy = requestDOM["dailyTaskStrategy"].GetString();
+  auto oldTaskTime = requestDOM["oldDailyTaskTime"].GetString();
+  std::string newTaskTime = "";
+  if (requestDOM.HasMember("newDailyTaskTime")) {
+    newTaskTime = requestDOM["newDailyTaskTime"].GetString();
   }
-  co_await connPool->ReleaseConnection(conn);
-  co_await co_await HTTPServerUtils::make_ok_response(io, "updateStrategy");
-  co_return {};
+  auto storeMAAInfos = queryMAAUserStrategy(conn, userID, deviceID);
+  if (storeMAAInfos.empty()) {
+    debug(), "userInfo not exist"s;
+    co_await co_await HTTPServerUtils::make_ok_response(io,
+                                                        "userInfo not exist");
+    co_await connPool->ReleaseConnection(conn);
+    co_return {};
+  } else {
+    bool hasTaskTime = false;
+    MAADailyTaskPlan updateMAAPlan;
+    for (const auto &storeMAAPlan : storeMAAInfos) {
+      if (storeMAAPlan.dailyTaskTime == oldTaskTime) {
+        hasTaskTime = true;
+        updateMAAPlan = storeMAAPlan;
+        break;
+      }
+    }
+    if (!hasTaskTime) {
+      co_await co_await HTTPServerUtils::make_ok_response(io,
+                                                          "taskTime not exist");
+      co_await connPool->ReleaseConnection(conn);
+      co_return {};
+    } else {
+      std::unordered_map<std::string, std::string> updateColMap;
+      updateColMap["dailyTaskStrategy"] = taskStrategy;
+      if (newTaskTime != "") {
+        updateColMap["dailyTaskTime"] = newTaskTime;
+      }
+      bool updateRes = updateMAADailyTaskPlan(
+          conn, updateMAAPlan.planID, updateMAAPlan.userID,
+          updateMAAPlan.deviceID, updateColMap);
+      if (!updateRes) {
+        debug(), "update task error"s;
+        co_await co_await HTTPServerUtils::make_ok_response(
+            io, "update task error");
+        co_await connPool->ReleaseConnection(conn);
+        co_return {};
+      }
+    }
+    co_await connPool->ReleaseConnection(conn);
+    co_await co_await HTTPServerUtils::make_ok_response(io, "updateStrategy");
+    co_return {};
+  }
 }
 
 Task<Expected<>> getStrategy(HTTPServer::IO &io) {
@@ -353,25 +439,34 @@ Task<Expected<>> getStrategy(HTTPServer::IO &io) {
   auto conn = co_await connPool->GetConnection();
   auto request = co_await io.request_body();
   rapidjson::Document requestDOM;
+  rapidjson::Document responseDOM;
   requestDOM.Parse(request.value().c_str());
   auto userID = requestDOM["user"].GetString();
   auto deviceID = requestDOM["device"].GetString();
-  auto storeUserInfo = queryMAAUserStrategy(conn, userID, deviceID);
-  if (storeUserInfo.userID == "" || storeUserInfo.deviceID == "") {
-
+  auto storeUserInfoVec = queryMAAUserStrategy(conn, userID, deviceID);
+  if (storeUserInfoVec.empty()) {
     debug(), "userInfo not exist"s;
-
     co_await co_await HTTPServerUtils::make_ok_response(io,
                                                         "userInfo not exist");
   } else {
-    auto taskStrategy = storeUserInfo.taskStrategy;
-
-    debug(), taskStrategy;
-
-    co_await co_await HTTPServerUtils::make_ok_response(io, taskStrategy);
+    responseDOM.SetObject();
+    auto &allocator = responseDOM.GetAllocator();
+    rapidjson::Value strategyArray(rapidjson::kArrayType);
+    for (const auto &storeUserInfo : storeUserInfoVec) {
+      rapidjson::Value strategyInfo(rapidjson::kObjectType);
+      rapidjson::Value dailyTaskTime(storeUserInfo.dailyTaskTime.c_str(),
+                                     allocator);
+      rapidjson::Value strategyStr(storeUserInfo.dailyTaskStrategy.c_str(),
+                                   allocator);
+      strategyInfo.AddMember("dailyTaskTime", dailyTaskTime, allocator);
+      strategyInfo.AddMember("strategy", strategyStr, allocator);
+      strategyArray.PushBack(strategyInfo, allocator);
+    }
+    responseDOM.AddMember("strategies", strategyArray, allocator);
+    auto responseStr = jsonToString(responseDOM);
+    co_await co_await HTTPServerUtils::make_ok_response(io, responseStr);
   }
   co_await connPool->ReleaseConnection(conn);
-
   co_return {};
 }
 
@@ -383,8 +478,8 @@ Task<Expected<>> quickTask(HTTPServer::IO &io) {
   requestDOM.Parse(request.value().c_str());
   auto userID = requestDOM["user"].GetString();
   auto deviceID = requestDOM["device"].GetString();
-  auto storeUserInfo = queryMAAUserInfo(conn, userID, deviceID);
-  if (storeUserInfo.userID == "" || storeUserInfo.deviceID == "") {
+  auto storeUserInfos = queryMAAUserInfo(conn, userID, deviceID);
+  if (storeUserInfos.empty()) {
     debug(), "userInfo not exist"s;
     co_await co_await HTTPServerUtils::make_ok_response(io,
                                                         "userInfo not exist");
