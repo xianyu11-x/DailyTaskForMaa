@@ -252,7 +252,6 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
       hasTask = true;
     } else {
       // TODO:检查有没有quickTask需要下发
-      debug(), "no need to update task"s, curUserInfo.userID;
       string taskStr;
       auto quickTasks = queryMAAQuickTask(conn, curUserInfo.userID,
                                           curUserInfo.deviceID, "0");
@@ -268,13 +267,15 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
           std::unordered_map<std::string, std::string> updateColMap;
           updateColMap["taskStartTime"] = strNewStartTaskTime;
           updateMAAQucikTask(conn, quickTask.taskID, updateColMap);
+          hasTask = true;
           break;
         }
       }
-      auto quickTaskList = stringToJson(taskStr);
-      auto quickUuid = generateUUID();
-      auto responseDOM = getDailyTask(quickUuid, quickTaskList.GetArray());
-      hasTask = true;
+      if(hasTask){
+        auto quickTaskList = stringToJson(taskStr);
+        responseDOM.SetObject();
+        responseDOM.AddMember("tasks",quickTaskList,responseDOM.GetAllocator());
+      }
     }
   }
   if (!hasTask) {
@@ -501,12 +502,37 @@ Task<Expected<>> quickTask(HTTPServer::IO &io) {
   requestDOM.Parse(request.value().c_str());
   auto userID = requestDOM["user"].GetString();
   auto deviceID = requestDOM["device"].GetString();
+  auto quickTask = requestDOM["quickTasks"].GetArray();
   auto storeUserInfos = queryMAAUserInfo(conn, userID, deviceID);
   if (storeUserInfos.empty()) {
     debug(), "userInfo not exist"s;
     co_await co_await HTTPServerUtils::make_ok_response(io,
                                                         "userInfo not exist");
   } else {
+    debug(),"insert quickTask"s;
+    auto curUserInfo = storeUserInfos[0];
+    auto now = std::chrono::system_clock::now();
+    std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
+    std::tm tmNow = *std::localtime(&nowTime);
+    auto nowStr = tmToString(tmNow,"%Y-%m-%d %H:%M:%S");
+    auto taskID = generateUUID();
+    rapidjson::Document taskActions;
+    auto &allocator = taskActions.GetAllocator();
+    rapidjson::Value taskArray(rapidjson::kArrayType);
+    vector<std::string> quickTaskUUIDs;
+    for(auto& task:quickTask){
+        rapidjson::Value taskObj(rapidjson::kObjectType);
+        std::string uuid = generateUUID();
+        rapidjson::Value id(uuid.c_str(), allocator);
+        taskObj.AddMember("id", id, allocator);
+        // 将原始任务的其他成员复制到 taskObj 中
+        for (auto& m : task.GetObject()) {
+            taskObj.AddMember(m.name, m.value, allocator);
+        }
+        taskArray.PushBack(taskObj, allocator);
+    }
+    taskActions.PushBack(taskArray, allocator);
+    
   }
   co_await connPool->ReleaseConnection(conn);
   co_return {};
