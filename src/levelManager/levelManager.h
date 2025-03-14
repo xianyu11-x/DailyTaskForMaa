@@ -14,6 +14,8 @@ class levelManager {
 
         void setSideStoryLevel(const rapidjson::Value::Array& sideStoryLevelList,const std::string& startTime,const std::string& endTime);
 
+        void setSideStoryLevel(const std::vector<std::string> sideStoryLevelList,const std::string& startTime,const std::string& endTime);
+        
         std::string getDefaultSideStoryLevel();
 
         bool checkLevelStatus(std::string levelName, int dayOfWeek);

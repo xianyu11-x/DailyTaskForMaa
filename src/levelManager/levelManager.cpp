@@ -38,6 +38,18 @@ void levelManager::setSideStoryLevel(const rapidjson::Value::Array& sideStoryLev
     sideStoryEndTime = endTime;
 }
 
+
+void levelManager::setSideStoryLevel(const std::vector<std::string> sideStoryLevelList,const std::string& startTime,const std::string& endTime)
+{
+    sideStoryLevelDict.clear();
+    for (const auto& level : sideStoryLevelList)
+    {
+        sideStoryLevelDict[level] = {1,1,1,1,1,1,1,};
+    }
+    sideStoryStartTime = startTime;
+    sideStoryEndTime = endTime;
+}
+
 std::pair<std::string, std::string> levelManager::getSideStoryTime(){
     return std::make_pair(sideStoryStartTime,sideStoryEndTime);
 }
