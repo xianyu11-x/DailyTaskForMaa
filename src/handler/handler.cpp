@@ -178,12 +178,14 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
 
   std::string userID = requestDOM["user"].GetString();
   std::string deviceID = requestDOM["device"].GetString();
-  if(conn == nullptr){
+  if (conn == nullptr) {
     int connNum = connPool->GetFreeConn();
-    co_await co_await stdio().putline("conn is nullptr; has freeConn "s + std::to_string(connNum));
+    co_await co_await stdio().putline("conn is nullptr; has freeConn "s +
+                                      std::to_string(connNum));
   }
   auto curUserInfo = queryMAAUserAllInfo(conn, userID, deviceID);
-  std::cerr << "Queried user info: userID=" << curUserInfo.userID << ", deviceID=" << curUserInfo.deviceID << std::endl;
+  std::cerr << "Queried user info: userID=" << curUserInfo.userID
+            << ", deviceID=" << curUserInfo.deviceID << std::endl;
 
   bool hasTask = false;
   if (curUserInfo.userID == "" || curUserInfo.deviceID == "") {
@@ -194,9 +196,7 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
       co_await co_await stdio().putline("init userInfo error"s);
     }
   } else {
-    auto now = std::chrono::system_clock::now();
-    std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
-    std::tm tmNow = *std::localtime(&nowTime);
+    std::tm tmNow = getNowTm();
     // 检查当前时间是否超过了dailyTaskTime并且taskStartTime小于dailyTaskTime(下发任务)
     // 检查taskStartTime是否超过了dailyTaskTime并且当前时间超过taskStartTime2个小时(重发任务)
     // 其他情况不更新任务状态
@@ -216,8 +216,8 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
          isTimeAfter(tmDailyTaskTime, tmTaskStartTime)) ||
         (isTimeAfter(tmTaskStartTime, tmDailyTaskTime) &&
          isTimeAfter(tmNow, tmExpectedTaskStartTime))) {
-// 更新任务状态&&重发任务
-      debug(), "send task to"s , curUserInfo.userID;
+      // 更新任务状态&&重发任务
+      debug(), "send task to"s, curUserInfo.userID;
 
       std::string curTaskID = generateUUID();
       std::unordered_map<std::string, std::string> updateColMap;
@@ -241,11 +241,11 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
       bool updateRes = updateMAAUser(conn, curUserInfo.userID,
                                      curUserInfo.deviceID, updateColMap);
       if (!updateRes) {
-        debug(), "update task error"s ;
+        debug(), "update task error"s;
       }
       hasTask = true;
     } else {
-      debug(),"no need to update task"s,curUserInfo.userID;                                  
+      debug(), "no need to update task"s, curUserInfo.userID;
     }
   }
   if (!hasTask) {
@@ -279,16 +279,16 @@ Task<Expected<>> reportStatus(HTTPServer::IO &io) {
   std::string deviceID = requestDOM["device"].GetString();
   std::string returnTaskID = requestDOM["task"].GetString();
   auto storeUserInfo = queryMAAUserInfo(conn, userID, deviceID);
-  std::cerr << "reportStatus: Queried user info: userID=" << storeUserInfo.userID << ", deviceID=" << storeUserInfo.deviceID << std::endl;
+  std::cerr << "reportStatus: Queried user info: userID="
+            << storeUserInfo.userID << ", deviceID=" << storeUserInfo.deviceID
+            << std::endl;
   if (storeUserInfo.userID == "" || storeUserInfo.deviceID == "") {
     co_await co_await stdio().putline("userInfo not exist"s);
   } else {
     auto storeTaskInfo = queryMAAUserTaskStatus(conn, storeUserInfo.userID,
                                                 storeUserInfo.deviceID);
     if (storeTaskInfo.dailyTaskID == returnTaskID) {
-      auto now = std::chrono::system_clock::now();
-      std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
-      std::tm tmNow = *std::localtime(&nowTime);
+      std::tm tmNow = getNowTm();
       std::string strTaskEndTime = tmToString(tmNow, "%Y-%m-%d %H:%M:%S");
 
       auto curDailyTaskTime =
@@ -320,15 +320,26 @@ Task<Expected<>> updateLevel(HTTPServer::IO &io) {
   requestDOM.Parse(request.value().c_str());
   auto levelManager = levelManager::GetInstance();
   auto sideStoryLevelList = requestDOM["Official"]["sideStoryStage"].GetArray();
-  if (!sideStoryLevelList.Empty()) {
-    auto startTime =
-        sideStoryLevelList[0]["Activity"]["UtcStartTime"].GetString();
-    auto endTime =
-        sideStoryLevelList[0]["Activity"]["UtcExpireTime"].GetString();
-    std::cout << startTime << std::endl;
-    std::cout << endTime << std::endl;
-    levelManager->setSideStoryLevel(sideStoryLevelList, startTime, endTime);
+  std::vector<std::string> levelList;
+  std::string startTime;
+  std::string endTime;
+  bool hasAvailableTime = false;
+  std::tm tmNow = getNowTm();
+  for (const auto &level : sideStoryLevelList) {
+    auto tmpStartTime = level["Activity"]["UtcStartTime"].GetString();
+    auto tmpEndTime = level["Activity"]["UtcExpireTime"].GetString();
+    auto levelName = level["Value"].GetString();
+    if(isTimeAfter(tmNow,stringToTm(tmpStartTime,"%Y/%m/%d %H:%M:%S")) && isTimeAfter(stringToTm(tmpEndTime,"%Y/%m/%d %H:%M:%S"),tmNow)){
+      levelList.push_back(levelName);
+      if(!hasAvailableTime){
+        startTime = tmpStartTime;
+        endTime = tmpEndTime;
+        hasAvailableTime = true;
+      }
+    }
   }
+  if (!levelList.empty())
+    levelManager->setSideStoryLevel(levelList, startTime, endTime);
   co_await co_await HTTPServerUtils::make_ok_response(io,
                                                       "updateSideStoryLevel");
   co_return {};
@@ -363,7 +374,8 @@ Task<Expected<>> getStrategy(HTTPServer::IO &io) {
   auto userID = requestDOM["user"].GetString();
   auto deviceID = requestDOM["device"].GetString();
   auto storeUserInfo = queryMAAUserStrategy(conn, userID, deviceID);
-  std::cerr << "Queried user info: userID=" << storeUserInfo.userID << ", deviceID=" << storeUserInfo.deviceID << std::endl;
+  std::cerr << "Queried user info: userID=" << storeUserInfo.userID
+            << ", deviceID=" << storeUserInfo.deviceID << std::endl;
   if (storeUserInfo.userID == "" || storeUserInfo.deviceID == "") {
 
     debug(), "userInfo not exist"s;
