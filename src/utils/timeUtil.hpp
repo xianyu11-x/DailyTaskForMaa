@@ -2,7 +2,7 @@
 #include <sstream>
 #include <iomanip>
 #include <ctime>
-
+#include <chrono>
 std::tm stringToTm(const std::string& timeStr, const std::string& format) {
     std::tm tm = {};
     std::istringstream ss(timeStr);
@@ -29,4 +29,10 @@ std::tm DateAdd(const std::tm& oriTm, int seconds) {
     std::time_t newTime = oriTime + seconds;
     std::tm newTm = *std::localtime(&newTime);
     return newTm;
+}
+
+std::tm getNowTm() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
+    return *std::localtime(&nowTime);
 }
