@@ -180,9 +180,7 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
     }
   } else {
     auto curUserInfo = curUserInfos[0];
-    auto now = std::chrono::system_clock::now();
-    std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
-    std::tm tmNow = *std::localtime(&nowTime);
+    std::tm tmNow = getNowTm();
     // 检查当前时间是否超过了dailyTaskTime并且taskStartTime小于dailyTaskTime(下发任务)
     // 检查taskStartTime是否超过了dailyTaskTime并且当前时间超过taskStartTime2个小时(重发任务)
     // 其他情况不更新任务状态
@@ -383,15 +381,26 @@ Task<Expected<>> updateLevel(HTTPServer::IO &io) {
   requestDOM.Parse(request.value().c_str());
   auto levelManager = levelManager::GetInstance();
   auto sideStoryLevelList = requestDOM["Official"]["sideStoryStage"].GetArray();
-  if (!sideStoryLevelList.Empty()) {
-    auto startTime =
-        sideStoryLevelList[0]["Activity"]["UtcStartTime"].GetString();
-    auto endTime =
-        sideStoryLevelList[0]["Activity"]["UtcExpireTime"].GetString();
-    std::cout << startTime << std::endl;
-    std::cout << endTime << std::endl;
-    levelManager->setSideStoryLevel(sideStoryLevelList, startTime, endTime);
+  std::vector<std::string> levelList;
+  std::string startTime;
+  std::string endTime;
+  bool hasAvailableTime = false;
+  std::tm tmNow = getNowTm();
+  for (const auto &level : sideStoryLevelList) {
+    auto tmpStartTime = level["Activity"]["UtcStartTime"].GetString();
+    auto tmpEndTime = level["Activity"]["UtcExpireTime"].GetString();
+    auto levelName = level["Value"].GetString();
+    if(isTimeAfter(tmNow,stringToTm(tmpStartTime,"%Y/%m/%d %H:%M:%S")) && isTimeAfter(stringToTm(tmpEndTime,"%Y/%m/%d %H:%M:%S"),tmNow)){
+      levelList.push_back(levelName);
+      if(!hasAvailableTime){
+        startTime = tmpStartTime;
+        endTime = tmpEndTime;
+        hasAvailableTime = true;
+      }
+    }
   }
+  if (!levelList.empty())
+    levelManager->setSideStoryLevel(levelList, startTime, endTime);
   co_await co_await HTTPServerUtils::make_ok_response(io,
                                                       "updateSideStoryLevel");
   co_return {};
