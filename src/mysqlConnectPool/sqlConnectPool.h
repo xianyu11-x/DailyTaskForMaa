@@ -28,6 +28,8 @@ private:
 	connectionPool();
 	~connectionPool();
 
+	bool checkSqlState(MYSQL *con);
+
 	int mMaxConn;  //最大连接数
 	int mCurConn;  //当前已使用的连接数
 	int mFreeConn; //当前空闲的连接数
@@ -39,7 +41,7 @@ private:
 
 public:
 	string murl;			 //主机地址
-	string mPort;		 //数据库端口号
+	int mPort;		 //数据库端口号
 	string mUser;		 //登陆数据库用户名
 	string mPassWord;	 //登陆数据库密码
 	string mDatabaseName; //使用数据库名
