@@ -1,0 +1,13 @@
+{
+    "user": "1234",
+    "device": "abcd",
+    "taskActions":[
+        {
+            "type":"LinkStart-WakeUp"
+        },
+        {
+            "type":"LinkStart-AutoRoguelike"
+        }
+    ]
+
+}
