@@ -11,6 +11,13 @@ std::string jsonToString(rapidjson::Document& doc){
     return buffer.GetString();
 }
 
+std::string jsonToString(rapidjson::Value& value){
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    value.Accept(writer);
+    return buffer.GetString();
+}
+
 rapidjson::Document stringToJson(const std::string& str){
     rapidjson::Document doc;
     doc.Parse(str.c_str());

@@ -117,6 +117,15 @@ rapidjson::Document getDailyTask(const std::string &coreTaskId,
   return dailyTask;
 }
 
+rapidjson::Document getQuickTask(const rapidjson::Value::Array &taskStrategy){
+  rapidjson::Document quickTask;
+  quickTask.SetObject();
+  auto &allocator = quickTask.GetAllocator();
+  quickTask.AddMember("tasks", taskStrategy, allocator);
+  return quickTask;
+}
+
+
 int userInit(std::string userID, std::string deviceID, MYSQL *conn) {
   auto defaultStrategy = getDefaultStrategy();
   std::string defaultStrategyStr = jsonToString(defaultStrategy);
@@ -271,7 +280,7 @@ Task<Expected<>> getTask(HTTPServer::IO &io) {
       }
       auto quickTaskList = stringToJson(taskStr);
       auto quickUuid = generateUUID();
-      auto responseDOM = getDailyTask(quickUuid, quickTaskList.GetArray());
+      auto responseDOM = getQuickTask(quickTaskList.GetArray());
       hasTask = true;
     }
   }
@@ -510,12 +519,42 @@ Task<Expected<>> quickTask(HTTPServer::IO &io) {
   requestDOM.Parse(request.value().c_str());
   auto userID = requestDOM["user"].GetString();
   auto deviceID = requestDOM["device"].GetString();
+  auto taskActions = requestDOM["taskActions"].GetArray();
   auto storeUserInfos = queryMAAUserInfo(conn, userID, deviceID);
   if (storeUserInfos.empty()) {
     debug(), "userInfo not exist"s;
     co_await co_await HTTPServerUtils::make_ok_response(io,
                                                         "userInfo not exist");
   } else {
+    auto& allocator = requestDOM.GetAllocator();
+    auto quickTaskId = generateUUID();
+    vector<MAAAction> taskActionsList;
+    for(auto& taskAction:taskActions){
+      rapidjson::Value taskIDValue(generateUUID().c_str(), allocator);
+      taskAction.AddMember("id", taskIDValue, allocator);
+      taskActionsList.push_back(MAAAction{.taskID = quickTaskId,
+                                          .actionID = taskIDValue.GetString(),
+                                          .actionIsFinish = "0"});
+    }
+    auto quickTaskStr = jsonToString(taskActions);
+    vector<MAAQucikTask> quickTaskList;
+    auto defaultStartTime = DateAdd(getNowTm(), -24 * 60 * 60); 
+    quickTaskList.push_back(MAAQucikTask{.taskID = quickTaskId,
+                                        .userID = userID,
+                                        .deviceID = deviceID,
+                                        .taskCommitTime = tmToString(getNowTm(),"%Y-%m-%d %H:%M:%S"),
+                                        .taskStartTime = tmToString(defaultStartTime,"%Y-%m-%d %H:%M:%S"),
+                                        .taskIsFinish = "0",
+                                        .taskActions = quickTaskStr});
+    int res = insertMAAQucikTask(conn, quickTaskList);
+    if(res == -1){
+      debug(), "insert quickTask error"s;
+    }
+    res = insertMAAAction(conn, taskActionsList);
+    if(res == -1){
+      debug(), "insert action error"s;
+    }
+    co_await co_await HTTPServerUtils::make_ok_response(io, "quickTask");
   }
   co_await connPool->ReleaseConnection(conn);
   co_return {};
