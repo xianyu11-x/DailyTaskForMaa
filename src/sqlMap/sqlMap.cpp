@@ -48,10 +48,10 @@ int insertMAADailyTaskPlan(
   return 0;
 }
 
-int insertMAAQucikTask(MYSQL *conn,
-                       const std::vector<MAAQucikTask> &quickTaskList) {
+int insertMAAQuickTask(MYSQL *conn,
+                       const std::vector<MAAQuickTask> &quickTaskList) {
   const char *query =
-      "INSERT INTO MAAQucikTask (taskID, userID, deviceID, taskCommitTime, "
+      "INSERT INTO MAAQuickTask (taskID, userID, deviceID, taskCommitTime, "
       "taskStartTime, taskIsFinish, taskActions) VALUES (?, ?, ?, ?, ?, ?, ?)";
   MYSQL_STMT *stmt = mysql_stmt_init(conn);
   if (!stmt) {
@@ -161,10 +161,10 @@ int insertMAAUser(MYSQL *conn, const std::vector<MAAUser> &userList) {
     bind[1].buffer_length = user.deviceID.length();
     bind[2].buffer = (char *)user.nextDailyTaskTime.c_str();
     bind[2].buffer_length = user.nextDailyTaskTime.length();
-    bind[3].buffer = (char *)user.taskStartTime.c_str();
-    bind[3].buffer_length = user.taskStartTime.length();
-    bind[4].buffer = (char *)user.taskEndTime.c_str();
-    bind[4].buffer_length = user.taskEndTime.length();
+    bind[3].buffer = (char *)user.dailyTaskStartTime.c_str();
+    bind[3].buffer_length = user.dailyTaskStartTime.length();
+    bind[4].buffer = (char *)user.dailyTaskEndTime.c_str();
+    bind[4].buffer_length = user.dailyTaskEndTime.length();
     bind[5].buffer = (char *)user.dailyTaskID.c_str();
     bind[5].buffer_length = user.dailyTaskID.length();
     if (mysql_stmt_bind_param(stmt, bind)) {
@@ -480,7 +480,7 @@ std::vector<MAAUser> queryMAAUserAllInfo(MYSQL *conn, std::string userID,
                                          std::string deviceID) {
   std::string sql =
       "SELECT "
-      "userID,deviceID,nextDailyTaskTime,taskStartTime,taskEndTime,dailyTaskID "
+      "userID,deviceID,nextDailyTaskTime,dailytaskStartTime,dailytaskEndTime,dailyTaskID "
       "FROM MAAUser WHERE userID = ? AND deviceID = ?";
   MYSQL_STMT *stmt = mysql_stmt_init(conn);
   if (!stmt) {
@@ -547,8 +547,8 @@ std::vector<MAAUser> queryMAAUserAllInfo(MYSQL *conn, std::string userID,
     users.push_back(MAAUser{.userID = vals[0],
                             .deviceID = vals[1],
                             .nextDailyTaskTime = vals[2],
-                            .taskStartTime = vals[3],
-                            .taskEndTime = vals[4],
+                            .dailyTaskStartTime = vals[3],
+                            .dailyTaskEndTime = vals[4],
                             .dailyTaskID = vals[5]});
   }
   mysql_free_result(res);
@@ -556,12 +556,12 @@ std::vector<MAAUser> queryMAAUserAllInfo(MYSQL *conn, std::string userID,
   return users;
 }
 
-std::vector<MAAQucikTask> queryMAAQuickTask(MYSQL *conn, std::string userID,
+std::vector<MAAQuickTask> queryMAAQuickTask(MYSQL *conn, std::string userID,
                                             std::string deviceID,
                                             std::string taskIsFinish) {
   const char *query =
       "SELECT taskID,taskCommitTime,taskStartTime,taskIsFinish,taskActions "
-      "FROM MAAQucikTask WHERE userID = ? AND deviceID = ? AND taskIsFinish = "
+      "FROM MAAQuickTask WHERE userID = ? AND deviceID = ? AND taskIsFinish = "
       "?";
   MYSQL_STMT *stmt = mysql_stmt_init(conn);
   if (!stmt) {
@@ -612,12 +612,12 @@ std::vector<MAAQucikTask> queryMAAQuickTask(MYSQL *conn, std::string userID,
     mysql_stmt_close(stmt);
     return {};
   }
-  std::vector<MAAQucikTask> quickTasks;
+  std::vector<MAAQuickTask> quickTasks;
   while (mysql_stmt_fetch(stmt) == 0) {
     for (auto &v : vals) {
       v.resize(strlen(v.c_str()));
     }
-    quickTasks.push_back(MAAQucikTask{.taskID = vals[0],
+    quickTasks.push_back(MAAQuickTask{.taskID = vals[0],
                                       .taskCommitTime = vals[1],
                                       .taskStartTime = vals[2],
                                       .taskIsFinish = vals[3],
@@ -784,8 +784,8 @@ std::vector<MAAAction> queryMAAAction(MYSQL *conn, std::string taskID, std::stri
   return actions;
 }
 
-bool updateMAAQucikTask(MYSQL *conn, std::string taskID,std::unordered_map<std::string, std::string>& updateColMap){
-  std::string sql = "UPDATE MAAQucikTask SET ";
+bool updateMAAQuickTask(MYSQL *conn, std::string taskID,std::unordered_map<std::string, std::string>& updateColMap){
+  std::string sql = "UPDATE MAAQuickTask SET ";
   bool first = true;
   for (const auto &kv : updateColMap) {
     if (!first)
