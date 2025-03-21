@@ -67,7 +67,7 @@ CREATE TABLE `MAAUser`  (
   `nextDailyTaskTime` datetime NULL DEFAULT NULL,
   `dailyTaskStartTime` datetime NULL DEFAULT NULL,
   `dailyTaskEndTime` datetime NULL DEFAULT NULL,
-  `dailyTaskID` int NULL DEFAULT NULL,
+  `dailyTaskID` char(255) CHARACTER SET utf16 COLLATE utf16_general_ci NULL DEFAULT NULL,
   PRIMARY KEY (`userID` DESC, `deviceID` DESC) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf16 COLLATE = utf16_general_ci ROW_FORMAT = Dynamic;
 

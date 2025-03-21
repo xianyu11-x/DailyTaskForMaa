@@ -1,6 +1,6 @@
 #include "sqlMap.h"
 #include <cstring>
-#include <mysql/field_types.h>
+//#include <mysql/field_types.h>
 #include <mysql/mysql.h>
 #include <string>
 #include <vector>
@@ -14,6 +14,7 @@ int insertMAADailyTaskPlan(
     return -1;
   }
   if (mysql_stmt_prepare(stmt, query, strlen(query))) {
+    mysql_stmt_close(stmt);
     return -1;
   }
   MYSQL_BIND bind[5];
@@ -35,12 +36,15 @@ int insertMAADailyTaskPlan(
     bind[4].buffer = (char *)dailyTaskPlan.dailyTaskTime.c_str();
     bind[4].buffer_length = dailyTaskPlan.dailyTaskTime.length();
     if (mysql_stmt_bind_param(stmt, bind)) {
+      mysql_stmt_close(stmt);
       return -1;
     }
     if (mysql_stmt_execute(stmt)) {
+      mysql_stmt_close(stmt);
       return -1;
     }
   }
+  mysql_stmt_close(stmt);
   return 0;
 }
 
@@ -54,6 +58,7 @@ int insertMAAQucikTask(MYSQL *conn,
     return -1;
   }
   if (mysql_stmt_prepare(stmt, query, strlen(query))) {
+    mysql_stmt_close(stmt);
     return -1;
   }
   MYSQL_BIND bind[7];
@@ -81,12 +86,15 @@ int insertMAAQucikTask(MYSQL *conn,
     bind[6].buffer = (char *)quickTask.taskActions.c_str();
     bind[6].buffer_length = quickTask.taskActions.length();
     if (mysql_stmt_bind_param(stmt, bind)) {
+      mysql_stmt_close(stmt);
       return -1;
     }
     if (mysql_stmt_execute(stmt)) {
+      mysql_stmt_close(stmt);
       return -1;
     }
   }
+  mysql_stmt_close(stmt);
   return 0;
 }
 
@@ -98,6 +106,7 @@ int insertMAAAction(MYSQL *conn, const std::vector<MAAAction> &actionList) {
     return -1;
   }
   if (mysql_stmt_prepare(stmt, query, strlen(query))) {
+    mysql_stmt_close(stmt);
     return -1;
   }
   MYSQL_BIND bind[3];
@@ -113,24 +122,28 @@ int insertMAAAction(MYSQL *conn, const std::vector<MAAAction> &actionList) {
     bind[2].buffer = (char *)action.actionIsFinish.c_str();
     bind[2].buffer_length = action.actionIsFinish.length();
     if (mysql_stmt_bind_param(stmt, bind)) {
+      mysql_stmt_close(stmt);
       return -1;
     }
     if (mysql_stmt_execute(stmt)) {
+      mysql_stmt_close(stmt);
       return -1;
     }
   }
+  mysql_stmt_close(stmt);
   return 0;
 }
 
 int insertMAAUser(MYSQL *conn, const std::vector<MAAUser> &userList) {
   const char *query =
       "INSERT INTO MAAUser (userID, deviceID, nextDailyTaskTime, "
-      "taskStartTime, taskEndTime, dailyTaskID) VALUES (?, ?, ?, ?, ?, ?)";
+      "dailytaskStartTime, dailytaskEndTime, dailyTaskID) VALUES (?, ?, ?, ?, ?, ?)";
   MYSQL_STMT *stmt = mysql_stmt_init(conn);
   if (!stmt) {
     return -1;
   }
   if (mysql_stmt_prepare(stmt, query, strlen(query))) {
+    mysql_stmt_close(stmt);
     return -1;
   }
   MYSQL_BIND bind[6];
@@ -155,12 +168,15 @@ int insertMAAUser(MYSQL *conn, const std::vector<MAAUser> &userList) {
     bind[5].buffer = (char *)user.dailyTaskID.c_str();
     bind[5].buffer_length = user.dailyTaskID.length();
     if (mysql_stmt_bind_param(stmt, bind)) {
+      mysql_stmt_close(stmt);
       return -1;
     }
     if (mysql_stmt_execute(stmt)) {
+      mysql_stmt_close(stmt);
       return -1;
     }
   }
+  mysql_stmt_close(stmt);
   return 0;
 }
 
