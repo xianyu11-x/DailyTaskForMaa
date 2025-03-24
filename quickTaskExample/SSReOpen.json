@@ -1,0 +1,17 @@
+{
+    "user": "1234",
+    "device": "abcd",
+    "taskActions":[
+        {
+            "type":" Settings-Stage1",
+            "params": "SSReOpen-HS"
+        },
+        {
+            "type":"LinkStart-WakeUp"
+        },
+        {
+            "type":"LinkStart-Combat"
+        }
+    ]
+
+}
