@@ -365,7 +365,7 @@ Task<Expected<>> reportStatus(HTTPServer::IO& io)
                 }
                 std::string strTaskEndTime = tmToString(tmNow, "%Y-%m-%d %H:%M:%S");
                 std::unordered_map<std::string, std::string> updateColMap;
-                updateColMap["taskEndTime"] = strTaskEndTime;
+                updateColMap["dailyTaskEndTime"] = strTaskEndTime;
                 updateColMap["nextDailyTaskTime"] = tmToString(nextDailyTaskTime, "%Y-%m-%d %H:%M:%S");
                 bool updateRes = updateMAAUser(conn, userID, deviceID, updateColMap);
             }

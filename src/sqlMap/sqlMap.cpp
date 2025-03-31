@@ -190,7 +190,7 @@ bool updateMAAUser(MYSQL *conn, std::string userID, std::string deviceID,
     sql += kv.first + " = ?";
     first = false;
   }
-  sql += " WHERE UserID = ? AND DeviceID = ?";
+  sql += " WHERE userID = ? AND deviceID = ?";
 
   // 初始化预处理语句
   MYSQL_STMT *stmt = mysql_stmt_init(conn);
