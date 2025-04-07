@@ -4,7 +4,7 @@
 #include <iomanip>
 #pragma once
 
-std::string generateUUID() {
+inline std::string generateUUID() {
     std::random_device rd;
     std::uniform_int_distribution<int> dist(0, 15);
 

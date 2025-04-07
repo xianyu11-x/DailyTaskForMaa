@@ -1,5 +1,5 @@
 #include "levelManager.h"
-#include "../utils/regUtil.hpp"
+#include "utils/regUtil.hpp"
 #include <string>
 
 levelManager *levelManager::GetInstance()

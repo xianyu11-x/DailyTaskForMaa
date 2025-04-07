@@ -4,12 +4,12 @@
 #include <string>
 #include <utility>
 #pragma once
-bool isLevelName(const std::string &name) {
+inline bool isLevelName(const std::string &name) {
     const std::regex pattern(R"(^[A-Za-z0-9]+-[0-9]+$)");
     return std::regex_match(name, pattern);
 }
 
-std::pair<std::string, int> getLevelPara(const std::string &name) {
+inline std::pair<std::string, int> getLevelPara(const std::string &name) {
     const std::regex pattern(R"(^([A-Za-z0-9]+)-([0-9]+)$)");
     std::smatch match;
     if (std::regex_match(name, match, pattern)) {
