@@ -3,7 +3,8 @@
 #include <iomanip>
 #include <ctime>
 #pragma once
-std::tm stringToTm(const std::string& timeStr, const std::string& format) {
+#include <chrono>
+inline std::tm stringToTm(const std::string& timeStr, const std::string& format) {
     std::tm tm = {};
     std::istringstream ss(timeStr);
     ss >> std::get_time(&tm, format.c_str());
@@ -13,20 +14,26 @@ std::tm stringToTm(const std::string& timeStr, const std::string& format) {
     return tm;
 }
 
-std::string tmToString(const std::tm& tm, const std::string& format) {
+inline std::string tmToString(const std::tm& tm, const std::string& format) {
     std::ostringstream oss;
     oss << std::put_time(&tm, format.c_str());
     return oss.str();
 }
 
 //当lhs时间晚于rhs时间时返回true
-bool isTimeAfter(const std::tm& lhs, const std::tm& rhs) {
+inline bool isTimeAfter(const std::tm& lhs, const std::tm& rhs) {
     return std::mktime(const_cast<std::tm*>(&lhs)) > std::mktime(const_cast<std::tm*>(&rhs));
 }
 
-std::tm DateAdd(const std::tm& oriTm, int seconds) {
+inline std::tm DateAdd(const std::tm& oriTm, int seconds) {
     std::time_t oriTime = std::mktime(const_cast<std::tm*>(&oriTm));
     std::time_t newTime = oriTime + seconds;
     std::tm newTm = *std::localtime(&newTime);
     return newTm;
+}
+
+inline std::tm getNowTm() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t nowTime = std::chrono::system_clock::to_time_t(now);
+    return *std::localtime(&nowTime);
 }

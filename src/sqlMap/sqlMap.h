@@ -8,8 +8,8 @@ struct MAAUser{
     std::string userID;
     std::string deviceID;
     std::string nextDailyTaskTime;
-    std::string taskStartTime;
-    std::string taskEndTime;
+    std::string dailyTaskStartTime;
+    std::string dailyTaskEndTime;
     std::string dailyTaskID;
 };
 
@@ -22,7 +22,7 @@ struct MAADailyTaskPlan{
     int taskSeconds;
 };
 
-struct MAAQucikTask{
+struct MAAQuickTask{
     std::string taskID;
     std::string userID;
     std::string deviceID;
@@ -41,7 +41,7 @@ struct MAAAction{
 
 int insertMAADailyTaskPlan(MYSQL *conn, const std::vector<MAADailyTaskPlan>& dailyTaskPlanList);
 
-int insertMAAQucikTask(MYSQL *conn, const std::vector<MAAQucikTask>& quickTaskList);
+int insertMAAQuickTask(MYSQL *conn, const std::vector<MAAQuickTask>& quickTaskList);
 
 int insertMAAAction(MYSQL *conn, const std::vector<MAAAction>& actionList);
 
@@ -55,7 +55,7 @@ std::vector<MAAUser> queryMAAUserTaskStatus(MYSQL *conn, std::string userID, std
 
 std::vector<MAADailyTaskPlan> queryMAAUserStrategy(MYSQL *conn, std::string userID, std::string deviceID);
 
-std::vector<MAAQucikTask> queryMAAQuickTask(MYSQL *conn, std::string userID, std::string deviceID,std::string taskIsFinish);
+std::vector<MAAQuickTask> queryMAAQuickTask(MYSQL *conn, std::string userID, std::string deviceID,std::string taskIsFinish);
 
 std::vector<MAAAction> queryMAAAction(MYSQL *conn, std::string actionID);
 
@@ -67,7 +67,7 @@ bool updateMAAUser(MYSQL *conn, std::string userID, std::string deviceID,std::un
 
 bool updateMAAAction(MYSQL *conn,std::string actionID,std::string actionIsFinish);
 
-bool updateMAAQucikTask(MYSQL *conn, std::string taskID,std::unordered_map<std::string, std::string>& updateColMap);
+bool updateMAAQuickTask(MYSQL *conn, std::string taskID,std::unordered_map<std::string, std::string>& updateColMap);
 
 bool updateMAADailyTaskPlan(MYSQL *conn, std::string planID,std::string userID,std::string deviceID,std::unordered_map<std::string, std::string>& updateColMap);
 

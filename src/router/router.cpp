@@ -1,5 +1,10 @@
 #include "router.h"
-#include "../handler/handler.h"
+#include "handler/getTask.h"
+#include "handler/reportStatus.h"
+#include "handler/updateLevel.h"
+#include "handler/updateStrategy.h"
+#include "handler/quickTask.h"
+#include "handler/getStrategy.h"
 #include "co_async/net/http_server.hpp"
 
 
@@ -12,6 +17,7 @@ void setAllRoute(HTTPServer &server) {
     server.route("POST", "/maa/reportStatus",reportStatus);
     server.route("POST", "/maa/updateSideStory",updateLevel);
     server.route("POST", "/maa/updateStrategy",updateStrategy);
+    server.route("POST", "/maa/quickTask",quickTask);
     server.route("GET","/maa/getStrategy", getStrategy);
     #if CO_ASYNC_DEBUG
     //server.route("GET", "/maa/getTask",getTask);

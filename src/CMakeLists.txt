@@ -4,7 +4,12 @@ add_subdirectory(levelManager)
 
 set(SRC
     main.cpp
-    handler/handler.cpp
+    handler/getStrategy.cpp
+    handler/getTask.cpp
+    handler/quickTask.cpp
+    handler/reportStatus.cpp
+    handler/updateLevel.cpp
+    handler/updateStrategy.cpp
     router/router.cpp
     mysqlConnectPool/sqlConnectPool.cpp
     sqlMap/sqlMap.cpp

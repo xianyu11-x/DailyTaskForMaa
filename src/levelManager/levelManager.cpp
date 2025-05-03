@@ -1,5 +1,5 @@
 #include "levelManager.h"
-#include "../utils/regUtil.hpp"
+#include "utils/regUtil.hpp"
 #include <string>
 
 levelManager *levelManager::GetInstance()
@@ -33,6 +33,18 @@ void levelManager::setSideStoryLevel(const rapidjson::Value::Array& sideStoryLev
     {
         std::string levelName = level["Value"].GetString();
         sideStoryLevelDict[levelName] = {1,1,1,1,1,1,1,};
+    }
+    sideStoryStartTime = startTime;
+    sideStoryEndTime = endTime;
+}
+
+
+void levelManager::setSideStoryLevel(const std::vector<std::string> sideStoryLevelList,const std::string& startTime,const std::string& endTime)
+{
+    sideStoryLevelDict.clear();
+    for (const auto& level : sideStoryLevelList)
+    {
+        sideStoryLevelDict[level] = {1,1,1,1,1,1,1,};
     }
     sideStoryStartTime = startTime;
     sideStoryEndTime = endTime;
