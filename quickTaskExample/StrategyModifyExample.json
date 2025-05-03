@@ -1,0 +1,17 @@
+{
+    "user": "example_user",
+    "device": "example_device",
+    "updateModel": "MODIFY",
+    "strategyModel": "SIMPLE",
+    "dailyTaskStrategy": {
+        "1": ["1-7", "1-10"],
+        "2": ["1-7", "AP-5"],
+        "3": ["1-7", "CA-5"],
+        "4": ["1-7", "SK-5"],
+        "5": ["1-7", "LS-5"],
+        "6": ["1-7", "CE-6"],
+        "7": ["1-7", "LS-6"]
+    },
+    "oldDailyTaskTime": "02:00:00",
+    "newDailyTaskTime": "03:00:00"
+}

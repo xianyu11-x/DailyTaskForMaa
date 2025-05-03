@@ -1,0 +1,7 @@
+{
+    "user": "example_user",
+    "device": "example_device",
+    "updateModel": "DELETE",
+    "strategyModel": "SIMPLE",
+    "oldDailyTaskTime": "02:00:00"
+}
