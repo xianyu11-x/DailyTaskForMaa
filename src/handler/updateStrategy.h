@@ -6,3 +6,7 @@
 using namespace co_async;
 
 Task<Expected<>> updateStrategy(HTTPServer::IO& io);
+
+std::string parseSimpleStrategy(std::string& strategyStr);
+
+bool checkStrategy(std::string& strategyStr);
