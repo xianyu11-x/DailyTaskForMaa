@@ -909,3 +909,34 @@ bool updateMAADailyTaskPlan(MYSQL *conn, std::string planID,std::string userID,s
   mysql_stmt_close(stmt);
   return true;
 }
+
+bool deleteMAADailyTaskPlan(MYSQL *conn, std::string planID){
+  std::string sql = "DELETE FROM MAADailyTaskPlan WHERE planID = ?";
+  MYSQL_STMT *stmt = mysql_stmt_init(conn);
+  if (!stmt) {
+    return false;
+  }
+  if (mysql_stmt_prepare(stmt, sql.c_str(), sql.size())) {
+    mysql_stmt_close(stmt);
+    return false;
+  }
+  MYSQL_BIND bind[1];
+  memset(bind, 0, sizeof(bind));
+  bind[0].buffer_type = MYSQL_TYPE_STRING;
+  bind[0].buffer = (char *)planID.c_str();
+  bind[0].buffer_length = planID.length();
+  if (mysql_stmt_bind_param(stmt, bind)) {
+    mysql_stmt_close(stmt);
+    return false;
+  }
+  if (mysql_stmt_execute(stmt)) {
+    mysql_stmt_close(stmt);
+    return false;
+  }
+  if (mysql_stmt_affected_rows(stmt) == 0) {
+        mysql_stmt_close(stmt);
+        return false;
+    }
+  mysql_stmt_close(stmt);
+  return true;
+}
