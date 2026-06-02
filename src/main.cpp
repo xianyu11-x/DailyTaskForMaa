@@ -90,6 +90,8 @@ int main(int argc, char **argv) {
   std::string confPath = "cfg/conf.json";
   if (argc > 1) {
     serveAt = argv[1];
+  }
+  if (argc > 2) {
     confPath = argv[2];
   }
   co_main(amain(serveAt, confPath));

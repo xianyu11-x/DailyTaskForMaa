@@ -2,8 +2,97 @@
 #include <cstring>
 //#include <mysql/field_types.h>
 #include <mysql/mysql.h>
+#include <algorithm>
+#include <memory>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
+
+namespace {
+
+constexpr unsigned long kMinResultBufferSize = 256;
+constexpr unsigned long kMaxInitialResultBufferSize = 4096;
+using MysqlBindBool =
+    std::remove_pointer_t<decltype(std::declval<MYSQL_BIND>().is_null)>;
+
+struct QueryResultBuffers {
+  std::vector<MYSQL_BIND> binds;
+  std::vector<std::vector<char>> buffers;
+  std::vector<unsigned long> lengths;
+  std::unique_ptr<MysqlBindBool[]> isNull;
+  std::unique_ptr<MysqlBindBool[]> errors;
+};
+
+QueryResultBuffers makeResultBuffers(MYSQL_RES *metadata) {
+  const auto fieldCount = mysql_num_fields(metadata);
+  MYSQL_FIELD *fields = mysql_fetch_fields(metadata);
+  QueryResultBuffers result;
+  result.binds.resize(fieldCount);
+  result.buffers.resize(fieldCount);
+  result.lengths.resize(fieldCount);
+  result.isNull = std::make_unique<MysqlBindBool[]>(fieldCount);
+  result.errors = std::make_unique<MysqlBindBool[]>(fieldCount);
+
+  for (unsigned int i = 0; i < fieldCount; ++i) {
+    const unsigned long fieldLength =
+        fields ? fields[i].length : kMinResultBufferSize;
+    const unsigned long cappedFieldLength =
+        std::min(fieldLength, kMaxInitialResultBufferSize - 1);
+    const unsigned long bufferLength =
+        std::max(cappedFieldLength + 1, kMinResultBufferSize);
+    result.buffers[i].assign(bufferLength, '\0');
+    result.binds[i].buffer_type = MYSQL_TYPE_STRING;
+    result.binds[i].buffer = result.buffers[i].data();
+    result.binds[i].buffer_length = bufferLength;
+    result.binds[i].length = &result.lengths[i];
+    result.binds[i].is_null = &result.isNull[i];
+    result.binds[i].error = &result.errors[i];
+  }
+
+  return result;
+}
+
+std::string resultString(const QueryResultBuffers &result, std::size_t index) {
+  if (index >= result.buffers.size() || result.isNull[index]) {
+    return "";
+  }
+  const auto length = std::min<unsigned long>(
+      result.lengths[index], result.buffers[index].size());
+  return std::string(result.buffers[index].data(), length);
+}
+
+bool bindResultBuffers(MYSQL_STMT *stmt, MYSQL_RES *metadata,
+                       QueryResultBuffers &result) {
+  result = makeResultBuffers(metadata);
+  return mysql_stmt_bind_result(stmt, result.binds.data()) == 0;
+}
+
+bool fetchNextRow(MYSQL_STMT *stmt, QueryResultBuffers &result) {
+  std::fill(result.errors.get(), result.errors.get() + result.binds.size(),
+            false);
+  int fetchStatus = mysql_stmt_fetch(stmt);
+  if (fetchStatus == MYSQL_NO_DATA) {
+    return false;
+  }
+  if (fetchStatus != 0 && fetchStatus != MYSQL_DATA_TRUNCATED) {
+    return false;
+  }
+
+  for (std::size_t i = 0; i < result.binds.size(); ++i) {
+    if (result.errors[i] && !result.isNull[i] &&
+        result.lengths[i] >= result.buffers[i].size()) {
+      result.buffers[i].assign(result.lengths[i] + 1, '\0');
+      result.binds[i].buffer = result.buffers[i].data();
+      result.binds[i].buffer_length = result.buffers[i].size();
+      mysql_stmt_fetch_column(stmt, &result.binds[i], i, 0);
+    }
+  }
+
+  return true;
+}
+
+} // namespace
 
 int insertMAADailyTaskPlan(
     MYSQL *conn, const std::vector<MAADailyTaskPlan> &dailyTaskPlanList) {
@@ -290,34 +379,18 @@ std::vector<MAAUser> queryMAAUserInfo(MYSQL *conn, std::string userID,
     return {};
   }
 
-  MYSQL_BIND resultBind[2];
-  memset(resultBind, 0, sizeof(resultBind));
-
-  std::vector<std::string> vals;
-  vals.reserve(2);
-  for (int i = 0; i < 2; i++) {
-    resultBind[i].buffer_type = MYSQL_TYPE_STRING;
-    // 先为每个字符串分配固定大小
-    vals.push_back(std::string(256, '\0'));
-    resultBind[i].buffer = (char *)vals.back().data();
-    // 指定缓冲区大小
-    resultBind[i].buffer_length = 256;
-    resultBind[i].is_null = nullptr;
-    resultBind[i].length = nullptr;
-  }
-  if (mysql_stmt_bind_result(stmt, resultBind)) {
+  QueryResultBuffers result;
+  if (!bindResultBuffers(stmt, res, result)) {
+    mysql_free_result(res);
     mysql_stmt_close(stmt);
     return {};
   }
 
   std::vector<MAAUser> users;
-  while (mysql_stmt_fetch(stmt) == 0) {
-    for (auto &v : vals) {
-      v.resize(strlen(v.c_str()));
-    }
+  while (fetchNextRow(stmt, result)) {
     users.push_back(MAAUser{
-        .userID = vals[0],
-        .deviceID = vals[1],
+        .userID = resultString(result, 0),
+        .deviceID = resultString(result, 1),
     });
   }
   mysql_free_result(res);
@@ -364,35 +437,18 @@ std::vector<MAAUser> queryMAAUserTaskStatus(MYSQL *conn, std::string userID,
     return {};
   }
 
-  MYSQL_BIND resultBind[2];
-  memset(resultBind, 0, sizeof(resultBind));
-
-  std::vector<std::string> vals;
-  vals.reserve(2);
-  for (int i = 0; i < 2; i++) {
-    resultBind[i].buffer_type = MYSQL_TYPE_STRING;
-    // 先为每个字符串分配固定大小
-    vals.push_back(std::string(256, '\0'));
-    resultBind[i].buffer = (char *)vals.back().data();
-    // 指定缓冲区大小
-    resultBind[i].buffer_length = 256;
-    resultBind[i].is_null = nullptr;
-    resultBind[i].length = nullptr;
-  }
-
-  if (mysql_stmt_bind_result(stmt, resultBind)) {
+  QueryResultBuffers result;
+  if (!bindResultBuffers(stmt, res, result)) {
     mysql_free_result(res);
     mysql_stmt_close(stmt);
     return {};
   }
 
   std::vector<MAAUser> users;
-  while (mysql_stmt_fetch(stmt) == 0) {
-    for (auto &v : vals) {
-      v.resize(strlen(v.c_str()));
-    }
+  while (fetchNextRow(stmt, result)) {
     users.push_back(
-        MAAUser{.nextDailyTaskTime = vals[0], .dailyTaskID = vals[1]});
+        MAAUser{.nextDailyTaskTime = resultString(result, 0),
+                .dailyTaskID = resultString(result, 1)});
   }
   mysql_free_result(res);
   mysql_stmt_close(stmt);
@@ -439,36 +495,19 @@ queryMAAUserStrategy(MYSQL *conn, std::string userID, std::string deviceID) {
     return {};
   }
 
-  MYSQL_BIND resultBind[3];
-  memset(resultBind, 0, sizeof(resultBind));
-
-  std::vector<std::string> vals;
-  vals.reserve(3);
-  for (int i = 0; i < 3; i++) {
-    resultBind[i].buffer_type = MYSQL_TYPE_STRING;
-    // 先为每个字符串分配固定大小
-    vals.push_back(std::string(1024, '\0'));
-    resultBind[i].buffer = (char *)vals.back().data();
-    // 指定缓冲区大小
-    resultBind[i].buffer_length = 1024;
-    resultBind[i].is_null = nullptr;
-    resultBind[i].length = nullptr;
-  }
-
-  if (mysql_stmt_bind_result(stmt, resultBind)) {
+  QueryResultBuffers result;
+  if (!bindResultBuffers(stmt, res, result)) {
     mysql_free_result(res);
     mysql_stmt_close(stmt);
     return {};
   }
 
   std::vector<MAADailyTaskPlan> strategies;
-  while (mysql_stmt_fetch(stmt) == 0) {
-    for (auto &v : vals) {
-      v.resize(strlen(v.c_str()));
-    }
-    strategies.push_back(MAADailyTaskPlan{.planID = vals[0],
-                                          .dailyTaskStrategy = vals[1],
-                                          .dailyTaskTime = vals[2]});
+  while (fetchNextRow(stmt, result)) {
+    strategies.push_back(MAADailyTaskPlan{
+        .planID = resultString(result, 0),
+        .dailyTaskStrategy = resultString(result, 1),
+        .dailyTaskTime = resultString(result, 2)});
   }
   mysql_free_result(res);
   mysql_stmt_close(stmt);
@@ -517,39 +556,21 @@ std::vector<MAAUser> queryMAAUserAllInfo(MYSQL *conn, std::string userID,
     return {};
   }
 
-  MYSQL_BIND resultBind[6];
-  memset(resultBind, 0, sizeof(resultBind));
-
-  std::vector<std::string> vals;
-  vals.reserve(6);
-  for (int i = 0; i < 6; i++) {
-    resultBind[i].buffer_type = MYSQL_TYPE_STRING;
-    // 先为每个字符串分配固定大小
-    vals.push_back(std::string(1024, '\0'));
-    resultBind[i].buffer = (char *)vals.back().data();
-    // 指定缓冲区大小
-    resultBind[i].buffer_length = 1024;
-    resultBind[i].is_null = nullptr;
-    resultBind[i].length = nullptr;
-  }
-
-  if (mysql_stmt_bind_result(stmt, resultBind)) {
+  QueryResultBuffers result;
+  if (!bindResultBuffers(stmt, res, result)) {
     mysql_free_result(res);
     mysql_stmt_close(stmt);
     return {};
   }
 
   std::vector<MAAUser> users;
-  while (mysql_stmt_fetch(stmt) == 0) {
-    for (auto &v : vals) {
-      v.resize(strlen(v.c_str()));
-    }
-    users.push_back(MAAUser{.userID = vals[0],
-                            .deviceID = vals[1],
-                            .nextDailyTaskTime = vals[2],
-                            .dailyTaskStartTime = vals[3],
-                            .dailyTaskEndTime = vals[4],
-                            .dailyTaskID = vals[5]});
+  while (fetchNextRow(stmt, result)) {
+    users.push_back(MAAUser{.userID = resultString(result, 0),
+                            .deviceID = resultString(result, 1),
+                            .nextDailyTaskTime = resultString(result, 2),
+                            .dailyTaskStartTime = resultString(result, 3),
+                            .dailyTaskEndTime = resultString(result, 4),
+                            .dailyTaskID = resultString(result, 5)});
   }
   mysql_free_result(res);
   mysql_stmt_close(stmt);
@@ -595,33 +616,19 @@ std::vector<MAAQuickTask> queryMAAQuickTask(MYSQL *conn, std::string userID,
     mysql_stmt_close(stmt);
     return {};
   }
-  MYSQL_BIND resultBind[5];
-  memset(resultBind, 0, sizeof(resultBind));
-  std::vector<std::string> vals;
-  vals.reserve(5);
-  for (int i = 0; i < 5; i++) {
-    resultBind[i].buffer_type = MYSQL_TYPE_STRING;
-    vals.push_back(std::string(1024, '\0'));
-    resultBind[i].buffer = (char *)vals.back().data();
-    resultBind[i].buffer_length = 1024;
-    resultBind[i].is_null = nullptr;
-    resultBind[i].length = nullptr;
-  }
-  if (mysql_stmt_bind_result(stmt, resultBind)) {
+  QueryResultBuffers result;
+  if (!bindResultBuffers(stmt, res, result)) {
     mysql_free_result(res);
     mysql_stmt_close(stmt);
     return {};
   }
   std::vector<MAAQuickTask> quickTasks;
-  while (mysql_stmt_fetch(stmt) == 0) {
-    for (auto &v : vals) {
-      v.resize(strlen(v.c_str()));
-    }
-    quickTasks.push_back(MAAQuickTask{.taskID = vals[0],
-                                      .taskCommitTime = vals[1],
-                                      .taskStartTime = vals[2],
-                                      .taskIsFinish = vals[3],
-                                      .taskActions = vals[4]});
+  while (fetchNextRow(stmt, result)) {
+    quickTasks.push_back(MAAQuickTask{.taskID = resultString(result, 0),
+                                      .taskCommitTime = resultString(result, 1),
+                                      .taskStartTime = resultString(result, 2),
+                                      .taskIsFinish = resultString(result, 3),
+                                      .taskActions = resultString(result, 4)});
   }
   mysql_free_result(res);
   mysql_stmt_close(stmt);
@@ -691,31 +698,17 @@ std::vector<MAAAction> queryMAAAction(MYSQL *conn, std::string actionID){
     mysql_stmt_close(stmt);
     return {};
   }
-  MYSQL_BIND resultBind[2];
-  memset(resultBind, 0, sizeof(resultBind));
-  std::vector<std::string> vals;
-  vals.reserve(2);
-  for (int i = 0; i < 2; i++) {
-    resultBind[i].buffer_type = MYSQL_TYPE_STRING;
-    vals.push_back(std::string(1024, '\0'));
-    resultBind[i].buffer = (char *)vals.back().data();
-    resultBind[i].buffer_length = 1024;
-    resultBind[i].is_null = nullptr;
-    resultBind[i].length = nullptr;
-  }
-  if (mysql_stmt_bind_result(stmt, resultBind)) {
+  QueryResultBuffers result;
+  if (!bindResultBuffers(stmt, res, result)) {
     mysql_free_result(res);
     mysql_stmt_close(stmt);
     return {};
   }
   std::vector<MAAAction> actions;
-  while (mysql_stmt_fetch(stmt) == 0) {
-    for (auto &v : vals) {
-      v.resize(strlen(v.c_str()));
-    }
+  while (fetchNextRow(stmt, result)) {
     actions.push_back(MAAAction{
-                                .taskID = vals[0],
-                                .actionIsFinish = vals[1]});
+                                .taskID = resultString(result, 0),
+                                .actionIsFinish = resultString(result, 1)});
   }
   mysql_free_result(res);
   mysql_stmt_close(stmt);
@@ -753,31 +746,17 @@ std::vector<MAAAction> queryMAAAction(MYSQL *conn, std::string taskID, std::stri
     mysql_stmt_close(stmt);
     return {};
   }
-  MYSQL_BIND resultBind[2];
-  memset(resultBind, 0, sizeof(resultBind));
-  std::vector<std::string> vals;
-  vals.reserve(2);
-  for (int i = 0; i < 2; i++) {
-    resultBind[i].buffer_type = MYSQL_TYPE_STRING;
-    vals.push_back(std::string(1024, '\0'));
-    resultBind[i].buffer = (char *)vals.back().data();
-    resultBind[i].buffer_length = 1024;
-    resultBind[i].is_null = nullptr;
-    resultBind[i].length = nullptr;
-  }
-  if (mysql_stmt_bind_result(stmt, resultBind)) {
+  QueryResultBuffers result;
+  if (!bindResultBuffers(stmt, res, result)) {
     mysql_free_result(res);
     mysql_stmt_close(stmt);
     return {};
   }
   std::vector<MAAAction> actions;
-  while (mysql_stmt_fetch(stmt) == 0) {
-    for (auto &v : vals) {
-      v.resize(strlen(v.c_str()));
-    }
+  while (fetchNextRow(stmt, result)) {
     actions.push_back(MAAAction{
-                                .actionID = vals[0],
-                                .actionIsFinish = vals[1]});
+                                .actionID = resultString(result, 0),
+                                .actionIsFinish = resultString(result, 1)});
   }
   mysql_free_result(res);
   mysql_stmt_close(stmt);

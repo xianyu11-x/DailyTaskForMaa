@@ -77,11 +77,22 @@ co_async::Task<MYSQL *> connectionPool::GetConnection() {
     connList.pop_front();
     if (!checkSqlState(con)) {
       mysql_close(con);
-      con = mysql_init(con);
-      con = mysql_real_connect(con, murl.c_str(), mUser.c_str(),
+      con = mysql_init(NULL);
+      if (con != NULL) {
+        MYSQL *connected =
+            mysql_real_connect(con, murl.c_str(), mUser.c_str(),
                                mPassWord.c_str(), mDatabaseName.c_str(), mPort,
                                NULL, 0);
+        if (connected == NULL) {
+          mysql_close(con);
+          con = NULL;
+        } else {
+          con = connected;
+        }
+      }
       if (con == NULL) {
+        --mFreeConn;
+        --mMaxConn;
         co_return NULL;
       }
     }
