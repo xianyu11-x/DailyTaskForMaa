@@ -37,8 +37,6 @@ services:
     privileged: true
     ulimits:
       core: -1
-    sysctls:
-      - kernel.core_pattern=/coredumps/core.%e.%p.%t
     user: root
     # network_mode: host
     networks:
