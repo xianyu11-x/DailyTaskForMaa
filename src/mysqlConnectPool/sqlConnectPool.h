@@ -3,7 +3,7 @@
 #include "co_async/generic/semaphore.hpp"
 #include <mutex>
 #include <list>
-#include <mysql/mysql.h>
+#include <mysql.h>
 #include <error.h>
 #include <string>
 #include <co_async/co_async.hpp>
@@ -45,6 +45,5 @@ public:
 	string mPassWord;	 //登陆数据库密码
 	string mDatabaseName; //使用数据库名
 };
-
 
 

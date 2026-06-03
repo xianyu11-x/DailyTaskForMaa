@@ -3,7 +3,7 @@
 #include "rapidjson/document.h"
 #include <co_async/co_async.hpp>
 #include <co_async/std.hpp>
-#include <mysql/mysql.h>
+#include <mysql.h>
 #pragma once
 using namespace co_async;
 

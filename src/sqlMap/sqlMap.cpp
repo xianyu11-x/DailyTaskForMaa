@@ -1,9 +1,9 @@
 #include "sqlMap.h"
 #include <cstring>
 //#include <mysql/field_types.h>
-#include <mysql/mysql.h>
 #include <algorithm>
 #include <memory>
+#include <mysql.h>
 #include <string>
 #include <type_traits>
 #include <utility>

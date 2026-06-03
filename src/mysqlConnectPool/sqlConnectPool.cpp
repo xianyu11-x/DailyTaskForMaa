@@ -2,7 +2,7 @@
 #include <co_async/co_async.hpp>
 #include <list>
 #include <mutex>
-#include <mysql/mysql.h>
+#include <mysql.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>

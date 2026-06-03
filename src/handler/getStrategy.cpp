@@ -7,7 +7,7 @@
 #include "co_async/utils/expected.hpp"
 #include "rapidjson/document.h"
 #include <ctime>
-#include <mysql/mysql.h>
+#include <mysql.h>
 #include <string>
 #include <vector>
 #include "getStrategy.h"

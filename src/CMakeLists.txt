@@ -18,4 +18,12 @@ set(SRC
     )
 
 add_executable(${PROJECT_NAME} ${SRC})
-target_link_libraries(${PROJECT_NAME} PRIVATE co_async mysqlclient)
+find_path(MYSQL_INCLUDE_DIR NAMES mysql.h PATH_SUFFIXES mysql mariadb)
+find_library(MYSQL_CLIENT_LIBRARY NAMES mysqlclient mariadbclient mariadb)
+
+if (NOT MYSQL_INCLUDE_DIR OR NOT MYSQL_CLIENT_LIBRARY)
+    message(FATAL_ERROR "MySQL/MariaDB client headers or library not found")
+endif()
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${MYSQL_INCLUDE_DIR})
+target_link_libraries(${PROJECT_NAME} PRIVATE co_async ${MYSQL_CLIENT_LIBRARY})

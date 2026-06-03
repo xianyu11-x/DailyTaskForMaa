@@ -1,5 +1,12 @@
 FROM archlinux
-RUN pacman -Syu --noconfirm && pacman -S --noconfirm cmake make gcc liburing mariadb-libs tbb
+RUN printf '%s\n' \
+    'Server = https://mirrors.aliyun.com/archlinux/$repo/os/$arch' \
+    'Server = https://mirrors.tuna.tsinghua.edu.cn/archlinux/$repo/os/$arch' \
+    'Server = https://mirrors.ustc.edu.cn/archlinux/$repo/os/$arch' \
+    > /etc/pacman.d/mirrorlist && \
+    pacman -Sy --noconfirm archlinux-keyring && \
+    pacman -Syu --noconfirm && \
+    pacman -S --needed --noconfirm cmake make gcc liburing mariadb-libs tbb
 COPY . /root/DailyTaskForMAA
 WORKDIR /root/DailyTaskForMAA
 RUN chmod +x docker-entrypoint.sh && mkdir -p /coredumps && chmod 1777 /coredumps

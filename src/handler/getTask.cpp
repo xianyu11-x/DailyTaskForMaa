@@ -17,7 +17,7 @@
 #include <ctime>
 #include <functional>
 #include <iomanip>
-#include <mysql/mysql.h>
+#include <mysql.h>
 #include <sstream>
 #include <string>
 #include <unordered_map>

@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <chrono>
 #include <ctime>
-#include <mysql/mysql.h>
+#include <mysql.h>
 #include <string>
 #include <unordered_map>
 #include <vector>

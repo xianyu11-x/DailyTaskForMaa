@@ -1,4 +1,4 @@
-#include <mysql/mysql.h>
+#include <mysql.h>
 #include <string>
 #include <unordered_map>
 #include <vector>

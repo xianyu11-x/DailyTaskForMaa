@@ -18,7 +18,7 @@
 #include <ctime>
 #include <functional>
 #include <iomanip>
-#include <mysql/mysql.h>
+#include <mysql.h>
 #include <shared_mutex>
 #include <sstream>
 #include <string>
