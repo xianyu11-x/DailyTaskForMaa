@@ -6,7 +6,7 @@ RUN chmod +x docker-entrypoint.sh && mkdir -p /coredumps && chmod 1777 /coredump
 
 RUN mkdir -p build && \
     cd build && \
-    cmake -DCMAKE_BUILD_TYPE=Release .. && \
+    cmake -DCMAKE_BUILD_TYPE=Debug .. && \
     make
 
 RUN ./bin/levelGenerator 
