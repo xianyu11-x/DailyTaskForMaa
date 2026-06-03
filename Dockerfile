@@ -6,7 +6,7 @@ RUN printf '%s\n' \
     > /etc/pacman.d/mirrorlist && \
     pacman -Sy --noconfirm archlinux-keyring && \
     pacman -Syu --noconfirm && \
-    pacman -S --needed --noconfirm cmake make gcc liburing mariadb-libs tbb
+    pacman -S --needed --noconfirm cmake make gcc gdb liburing mariadb-libs tbb
 COPY . /root/DailyTaskForMAA
 WORKDIR /root/DailyTaskForMAA
 RUN chmod +x docker-entrypoint.sh && mkdir -p /coredumps && chmod 1777 /coredumps
